@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  /* Glow Pay Brand Colors */
+  --color-glow-50: #fefce8;
+  --color-glow-100: #fef9c3;
+  --color-glow-200: #fef08a;
+  --color-glow-300: #fde047;
+  --color-glow-400: #facc15;
+  --color-glow-500: #eab308;
+  --color-glow-600: #ca8a04;
+  
+  /* Dark theme base */
+  --color-surface-900: #0a0a0f;
+  --color-surface-800: #12121a;
+  --color-surface-700: #1a1a24;
+  --color-surface-600: #24242f;
+  --color-surface-500: #32323f;
+  
+  /* Accent */
+  --color-bitcoin: #f7931a;
+  --color-lightning: #9333ea;
+  
+  /* Fonts */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('https://fonts.gstatic.com/s/spacegrotesk/v16/V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2') format('woff2');
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('https://fonts.gstatic.com/s/jetbrainsmono/v18/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yKxjPQ.woff2') format('woff2');
+  font-weight: 400 700;
+  font-display: swap;
+}
+
+body {
+  font-family: var(--font-display);
+  background-color: var(--color-surface-900);
+  color: white;
+}
+
+/* Glowing effect for brand elements */
+.glow-text {
+  text-shadow: 0 0 20px rgba(250, 204, 21, 0.5), 0 0 40px rgba(250, 204, 21, 0.3);
+}
+
+.glow-box {
+  box-shadow: 0 0 30px rgba(250, 204, 21, 0.2), 0 0 60px rgba(250, 204, 21, 0.1);
+}
+
+/* Bitcoin orange glow */
+.glow-bitcoin {
+  box-shadow: 0 0 30px rgba(247, 147, 26, 0.3), 0 0 60px rgba(247, 147, 26, 0.15);
+}
+
+/* Animated gradient background */
+.gradient-bg {
+  background: linear-gradient(135deg, var(--color-surface-900) 0%, var(--color-surface-800) 50%, #1a1520 100%);
+}
+
+/* QR code container */
+.qr-container {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+}
