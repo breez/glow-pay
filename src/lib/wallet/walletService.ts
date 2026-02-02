@@ -1,4 +1,5 @@
 import * as breezSdk from '@breeztech/breez-sdk-spark'
+import { isWasmInitialized } from './wasmLoader'
 
 interface EventListener {
   onEvent: (event: breezSdk.SdkEvent) => void
@@ -23,6 +24,10 @@ const API_KEY = 'MIIBazCCAR2gAwIBAgIHPdG0GExEwzAFBgMrZXAwEDEOMAwGA1UEAxMFQnJlZXo
 
 export const initWallet = async (mnemonic: string, network: breezSdk.Network = 'mainnet'): Promise<void> => {
   if (sdk) return
+
+  if (!isWasmInitialized()) {
+    throw new Error('WASM module not initialized. Please refresh the page.')
+  }
 
   if (!logger) {
     logger = new WebLogger()

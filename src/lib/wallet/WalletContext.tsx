@@ -16,9 +16,13 @@ import {
   removeEventListener,
 } from './walletService'
 
+const MAX_RECONNECT_ATTEMPTS = 3
+const RECONNECT_DELAY_MS = 2000
+
 interface WalletContextValue {
   isConnecting: boolean
   isConnected: boolean
+  isSyncing: boolean
   walletInfo: breezSdk.GetInfoResponse | null
   lightningAddress: breezSdk.LightningAddressInfo | null
   error: string | null
@@ -38,38 +42,80 @@ const WalletContext = createContext<WalletContextValue | null>(null)
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
   const [walletInfo, setWalletInfo] = useState<breezSdk.GetInfoResponse | null>(null)
   const [lightningAddress, setLightningAddress] = useState<breezSdk.LightningAddressInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const eventListenerIdRef = useRef<string | null>(null)
+  const reconnectAttemptRef = useRef(0)
+  const isRestoringRef = useRef(false)
 
   useEffect(() => {
     const savedMnemonic = getSavedMnemonic()
     if (savedMnemonic) {
-      connectWithMnemonic(savedMnemonic).catch(() => clearMnemonic())
+      reconnectWithRetry(savedMnemonic)
     }
   }, [])
 
+  const reconnectWithRetry = async (mnemonic: string) => {
+    reconnectAttemptRef.current = 0
+    isRestoringRef.current = true
+    setIsSyncing(true)
+
+    const attempt = async (): Promise<void> => {
+      try {
+        await connectWithMnemonic(mnemonic)
+        reconnectAttemptRef.current = 0
+        // Keep isSyncing true until we receive the 'synced' event
+      } catch (err) {
+        reconnectAttemptRef.current++
+        console.warn(`Wallet reconnection attempt ${reconnectAttemptRef.current} failed:`, err)
+
+        if (reconnectAttemptRef.current < MAX_RECONNECT_ATTEMPTS) {
+          await new Promise(resolve => setTimeout(resolve, RECONNECT_DELAY_MS))
+          return attempt()
+        }
+
+        // After all retries failed, don't clear mnemonic - just log the error
+        // The user can manually retry or the app can retry on next load
+        console.error('Wallet reconnection failed after all attempts. Mnemonic preserved for next attempt.')
+        setError('Failed to connect wallet. Please check your connection and refresh the page.')
+        isRestoringRef.current = false
+        setIsSyncing(false)
+      }
+    }
+
+    await attempt()
+  }
+
   const handleSdkEvent = useCallback(async (event: breezSdk.SdkEvent) => {
-    if (event.type === 'synced' || event.type === 'paymentSucceeded') {
+    if (event.type === 'synced') {
+      console.log('Wallet synced event received')
+      // Mark sync complete if we were restoring
+      if (isRestoringRef.current) {
+        isRestoringRef.current = false
+        setIsSyncing(false)
+      }
+      // Refresh wallet data after sync
+      const info = await getWalletInfo()
+      setWalletInfo(info)
+      const addr = await getLightningAddress()
+      setLightningAddress(addr)
+    } else if (event.type === 'paymentSucceeded') {
       const info = await getWalletInfo()
       setWalletInfo(info)
     }
   }, [])
 
+  // Cleanup event listener on unmount
   useEffect(() => {
-    if (isConnected && !eventListenerIdRef.current) {
-      addEventListener(handleSdkEvent).then(id => {
-        eventListenerIdRef.current = id
-      }).catch(() => {})
-    }
     return () => {
       if (eventListenerIdRef.current) {
         removeEventListener(eventListenerIdRef.current).catch(() => {})
         eventListenerIdRef.current = null
       }
     }
-  }, [isConnected, handleSdkEvent])
+  }, [])
 
   const connectWithMnemonic = async (mnemonic: string) => {
     if (connected()) return
@@ -77,6 +123,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setError(null)
     try {
       await initWallet(mnemonic, 'mainnet')
+
+      // Set up event listener IMMEDIATELY after SDK init, before setting isConnected
+      // This prevents race condition where 'synced' event fires before listener is ready
+      if (!eventListenerIdRef.current) {
+        try {
+          const listenerId = await addEventListener(handleSdkEvent)
+          eventListenerIdRef.current = listenerId
+          console.log('Event listener registered:', listenerId)
+        } catch (e) {
+          console.warn('Failed to add event listener:', e)
+        }
+      }
+
       setIsConnected(true)
       setWalletInfo(await getWalletInfo())
       setLightningAddress(await getLightningAddress())
@@ -132,6 +191,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     <WalletContext.Provider value={{
       isConnecting,
       isConnected,
+      isSyncing,
       walletInfo,
       lightningAddress,
       error,
