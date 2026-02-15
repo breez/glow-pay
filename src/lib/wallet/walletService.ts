@@ -235,40 +235,6 @@ export const getWalletInfoForAccount = async (accountNumber: number): Promise<br
   return await instance.sdk.getInfo({})
 }
 
-// Sweep all funds to a target account via Spark addresses
-export const sweepToAccount = async (targetAccountNumber: number): Promise<void> => {
-  const target = walletPool.find(w => w.accountNumber === targetAccountNumber)
-  if (!target) throw new Error(`Target account ${targetAccountNumber} not connected`)
-
-  // Get a Spark address for the target wallet
-  const receiveResponse = await target.sdk.receivePayment({
-    paymentMethod: { type: 'sparkAddress' },
-  })
-  const targetAddress = receiveResponse.paymentRequest
-
-  for (const instance of walletPool) {
-    if (instance.accountNumber === targetAccountNumber) continue
-
-    try {
-      const info = await instance.sdk.getInfo({})
-      if (info.balanceSats <= 0) continue
-
-      // Prepare and send the full balance to target
-      const prepareResponse = await instance.sdk.prepareSendPayment({
-        paymentRequest: targetAddress,
-      })
-
-      await instance.sdk.sendPayment({
-        prepareResponse,
-      })
-
-      console.log(`Swept account ${instance.accountNumber} → account ${targetAccountNumber}`)
-    } catch (err) {
-      console.error(`Failed to sweep account ${instance.accountNumber}:`, err)
-    }
-  }
-}
-
 // --- Backward-compatible functions (delegate to account 0) ---
 
 export const getWalletInfo = async (): Promise<breezSdk.GetInfoResponse | null> => {

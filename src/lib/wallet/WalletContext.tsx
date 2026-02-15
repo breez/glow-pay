@@ -18,7 +18,6 @@ import {
   getAllLightningAddresses,
   refreshAllAddresses,
   selectAddress,
-  sweepToAccount,
   POOL_SIZE,
 } from './walletService'
 import type { AggregateBalance } from './walletService'
@@ -49,7 +48,6 @@ interface WalletContextValue {
   selectPaymentAddress: () => { address: string; accountIndex: number }
   refreshAggregateBalance: () => Promise<void>
   registerAllAddresses: (baseUsername: string) => Promise<string[]>
-  sweepFunds: (targetAccount: number) => Promise<void>
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null)
@@ -293,12 +291,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return addresses
   }, [])
 
-  const sweepFunds = useCallback(async (targetAccount: number) => {
-    await sweepToAccount(targetAccount)
-    setAggregateBalance(await getAggregateBalance())
-    setWalletInfo(await getWalletInfo())
-  }, [])
-
   return (
     <WalletContext.Provider value={{
       isConnecting,
@@ -323,7 +315,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       selectPaymentAddress,
       refreshAggregateBalance,
       registerAllAddresses,
-      sweepFunds,
     }}>
       {children}
     </WalletContext.Provider>
