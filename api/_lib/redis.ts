@@ -30,6 +30,10 @@ export interface ServerMerchant {
   apiKeys: ServerApiKey[]
   rotationEnabled: boolean
   rotationCount: number
+  webhookUrl?: string | null
+  webhookSecret?: string | null
+  brandColor?: string | null
+  logoUrl?: string | null
   registeredAt: string
 }
 

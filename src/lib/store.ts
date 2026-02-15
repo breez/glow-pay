@@ -44,6 +44,18 @@ export function migrateMerchant(merchant: Merchant): Merchant {
   if (merchant.rotationCount === undefined) {
     merchant.rotationCount = 5
   }
+  if (merchant.webhookUrl === undefined) {
+    merchant.webhookUrl = null
+  }
+  if (merchant.webhookSecret === undefined) {
+    merchant.webhookSecret = null
+  }
+  if (merchant.brandColor === undefined) {
+    merchant.brandColor = null
+  }
+  if (merchant.logoUrl === undefined) {
+    merchant.logoUrl = null
+  }
   // Keep apiKey in sync with first active key
   const firstActive = merchant.apiKeys.find(k => k.active)
   if (firstActive) {

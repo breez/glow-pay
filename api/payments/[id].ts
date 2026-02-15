@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getPaymentFromKv, savePaymentToKv, getMerchantById } from '../_lib/redis.js'
+import { sendWebhook } from '../_lib/webhook.js'
 import { verifyPayment } from '../../src/lib/lnurl.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -21,8 +22,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(404).json({ error: 'Payment not found' })
   }
 
+  // Fetch merchant early — needed for webhooks and branding in response
+  const merchant = await getMerchantById(payment.merchantId)
+
   // Live LNURL-verify check if still pending
   if (payment.status === 'pending' && payment.verifyUrl) {
+    const previousStatus = payment.status
     try {
       const result = await verifyPayment(payment.verifyUrl)
       if (result.settled) {
@@ -36,10 +41,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err) {
       console.warn('LNURL-verify check failed:', err)
     }
-  }
 
-  // Fetch merchant for display info
-  const merchant = await getMerchantById(payment.merchantId)
+    // Fire webhook on status change
+    if (payment.status !== previousStatus && merchant?.webhookUrl && merchant?.webhookSecret) {
+      sendWebhook(merchant.webhookUrl, merchant.webhookSecret,
+        payment.status === 'completed' ? 'payment.completed' : 'payment.expired',
+        { paymentId: payment.id, amountSats: payment.amountSats, status: payment.status, paidAt: payment.paidAt },
+      ).catch(() => {})
+    }
+  }
 
   return res.status(200).json({
     success: true,
@@ -54,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       paidAt: payment.paidAt,
       verifyUrl: payment.verifyUrl,
       merchant: merchant
-        ? { storeName: merchant.storeName, redirectUrl: merchant.redirectUrl }
+        ? { storeName: merchant.storeName, redirectUrl: merchant.redirectUrl, brandColor: merchant.brandColor || null, logoUrl: merchant.logoUrl || null }
         : null,
     },
   })

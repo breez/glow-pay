@@ -22,6 +22,8 @@ interface PaymentData {
 interface MerchantData {
   storeName: string
   redirectUrl: string | null
+  brandColor?: string | null
+  logoUrl?: string | null
 }
 
 export function CheckoutPage() {
@@ -98,7 +100,7 @@ export function CheckoutPage() {
         paidAt: p.paidAt,
         verifyUrl: p.verifyUrl,
       })
-      setMerchant({ storeName: m.storeName, redirectUrl: m.redirectUrl })
+      setMerchant({ storeName: m.storeName, redirectUrl: m.redirectUrl, brandColor: m.brandColor, logoUrl: m.logoUrl })
 
       if (p.status === 'completed') {
         setState('success')
@@ -238,19 +240,26 @@ export function CheckoutPage() {
         {/* Header */}
         <div className="text-center mb-6">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-lg bg-glow-400 flex items-center justify-center shadow-lg shadow-glow-400/20">
-              <Zap className="w-6 h-6 text-surface-900" />
-            </div>
-            <span className="text-lg font-bold">Glow Pay</span>
+            {merchant?.logoUrl ? (
+              <img src={merchant.logoUrl} alt="" className="w-10 h-10 rounded-lg object-contain" />
+            ) : (
+              <div
+                className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-lg ${merchant?.brandColor ? '' : 'bg-glow-400 shadow-glow-400/20'}`}
+                style={merchant?.brandColor ? { backgroundColor: merchant.brandColor, boxShadow: `0 4px 14px ${merchant.brandColor}33` } : undefined}
+              >
+                <Zap className="w-6 h-6 text-surface-900" />
+              </div>
+            )}
+            <span className="text-lg font-bold">{merchant?.storeName || 'Glow Pay'}</span>
           </div>
-          {merchant?.storeName && (
-            <p className="text-gray-400">{merchant.storeName}</p>
-          )}
         </div>
 
         {/* Amount */}
         <div className="text-center mb-6">
-          <p className="text-4xl font-bold tracking-tight text-glow-400 glow-text tabular-nums">
+          <p
+            className={`text-4xl font-bold tracking-tight tabular-nums ${merchant?.brandColor ? '' : 'text-glow-400 glow-text'}`}
+            style={merchant?.brandColor ? { color: merchant.brandColor } : undefined}
+          >
             {formatSats(payment?.amountSats || 0)} sats
           </p>
           {payment?.description && (
@@ -296,11 +305,6 @@ export function CheckoutPage() {
               )}
             </button>
 
-            {/* Waiting indicator */}
-            <div className="flex items-center justify-center gap-2 text-gray-500">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Listening for payment...</span>
-            </div>
           </>
         )}
 
@@ -333,7 +337,7 @@ export function CheckoutPage() {
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-white/[0.06] text-center">
           <p className="text-xs text-gray-500">
-            Secured by the Lightning Network
+            Powered by Breez SDK
           </p>
         </div>
       </div>

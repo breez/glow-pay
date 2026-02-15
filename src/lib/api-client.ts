@@ -9,6 +9,10 @@ export async function syncMerchantToServer(merchant: {
   redirectUrl: string | null
   rotationEnabled?: boolean
   rotationCount?: number
+  webhookUrl?: string | null
+  webhookSecret?: string | null
+  brandColor?: string | null
+  logoUrl?: string | null
 }): Promise<{ success: boolean }> {
   const res = await fetch(`${API_BASE}/merchants`, {
     method: 'POST',
@@ -61,6 +65,8 @@ export async function getPaymentFromApi(paymentId: string): Promise<{
     merchant: {
       storeName: string
       redirectUrl: string | null
+      brandColor?: string | null
+      logoUrl?: string | null
     } | null
   }
   error?: string

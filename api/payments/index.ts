@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getMerchantByApiKey, getAddressUsageFromKv, updateAddressUsageInKv, savePaymentToKv } from '../_lib/redis.js'
 import { selectRotationAddress } from '../_lib/rotation.js'
+import { sendWebhook } from '../_lib/webhook.js'
 import { fetchLnurlPayInfo, requestInvoice, satsToMsats, extractPaymentHash, buildVerifyUrl } from '../../src/lib/lnurl.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -79,6 +80,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     await savePaymentToKv(payment)
+
+    // Fire webhook (best-effort)
+    if (merchant.webhookUrl && merchant.webhookSecret) {
+      sendWebhook(merchant.webhookUrl, merchant.webhookSecret, 'payment.created', {
+        paymentId, amountSats, description: description || null, status: 'pending',
+      }).catch(() => {})
+    }
 
     const baseUrl = `https://${req.headers.host}`
     return res.status(201).json({

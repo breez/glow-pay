@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, RefreshCw, Shield } from 'lucide-react'
+import { Save, RefreshCw, Shield, Palette } from 'lucide-react'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
 import type { Merchant } from '@/lib/types'
@@ -7,8 +7,9 @@ import type { Merchant } from '@/lib/types'
 export function DashboardSettings() {
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [storeName, setStoreName] = useState('')
-  const [redirectUrl, setRedirectUrl] = useState('')
   const [rotationCount, setRotationCount] = useState(1)
+  const [brandColor, setBrandColor] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -18,8 +19,9 @@ export function DashboardSettings() {
     if (m) {
       setMerchant(m)
       setStoreName(m.storeName || '')
-      setRedirectUrl(m.redirectUrl || '')
       setRotationCount(m.rotationCount ?? 1)
+      setBrandColor(m.brandColor || '')
+      setLogoUrl(m.logoUrl || '')
     }
   }, [])
 
@@ -34,7 +36,7 @@ export function DashboardSettings() {
         lightningAddress: merchant?.lightningAddress || '',
         lightningAddresses: merchant?.lightningAddresses || [],
         storeName,
-        redirectUrl: redirectUrl || null,
+        redirectUrl: merchant?.redirectUrl ?? null,
         redirectSecret: merchant?.redirectSecret || generateSecret(),
         apiKey: merchant?.apiKey || generateApiKey(),
         apiKeys: merchant?.apiKeys || [{
@@ -45,6 +47,10 @@ export function DashboardSettings() {
         }],
         rotationEnabled: true,
         rotationCount,
+        webhookUrl: merchant?.webhookUrl ?? null,
+        webhookSecret: merchant?.webhookSecret ?? null,
+        brandColor: brandColor || null,
+        logoUrl: logoUrl || null,
         createdAt: merchant?.createdAt || new Date().toISOString(),
       }
 
@@ -62,6 +68,10 @@ export function DashboardSettings() {
         redirectUrl: updatedMerchant.redirectUrl,
         rotationEnabled: updatedMerchant.rotationEnabled,
         rotationCount: updatedMerchant.rotationCount,
+        webhookUrl: updatedMerchant.webhookUrl,
+        webhookSecret: updatedMerchant.webhookSecret,
+        brandColor: updatedMerchant.brandColor,
+        logoUrl: updatedMerchant.logoUrl,
       }).catch(err => console.warn('Failed to sync merchant to server:', err))
 
       setSuccess(true)
@@ -73,10 +83,12 @@ export function DashboardSettings() {
     }
   }
 
+  const isValidHex = (s: string) => /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s)
+
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold tracking-tight mb-1">Settings</h1>
-      <p className="text-sm text-gray-400 mb-8">Manage your payment preferences and store details.</p>
+      <p className="text-sm text-gray-400 mb-8">Manage your payment preferences and checkout branding.</p>
 
       <div className="space-y-6">
         {/* Privacy Rotation */}
@@ -116,13 +128,16 @@ export function DashboardSettings() {
           </div>
         </div>
 
-        {/* Store Info */}
+        {/* Checkout Branding */}
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
-          <h2 className="text-base font-semibold mb-4">Business Details</h2>
+          <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
+            <Palette className="w-5 h-5 text-glow-400" />
+            Checkout Branding
+          </h2>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Display Name</label>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Checkout Display Name</label>
               <input
                 type="text"
                 value={storeName}
@@ -130,20 +145,47 @@ export function DashboardSettings() {
                 placeholder="e.g. Acme Electronics"
                 className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors"
               />
+              <p className="text-xs text-gray-500 mt-2">Shown to customers on the payment page.</p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Post-Payment Redirect URL</label>
-              <input
-                type="url"
-                value={redirectUrl}
-                onChange={(e) => setRedirectUrl(e.target.value)}
-                placeholder="https://yoursite.com/success"
-                className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                After a successful payment, the customer is redirected here with <code className="text-gray-400">?payment_id=</code>, <code className="text-gray-400">&status=paid</code>, and <code className="text-gray-400">&amount_sats=</code> appended.
-              </p>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Brand Color</label>
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={brandColor}
+                    onChange={(e) => setBrandColor(e.target.value)}
+                    placeholder="#facc15"
+                    maxLength={7}
+                    className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors font-mono"
+                  />
+                </div>
+                <div
+                  className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0"
+                  style={{ backgroundColor: isValidHex(brandColor) ? brandColor : '#333' }}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Hex color for buttons and accents on the checkout page. Leave empty for default.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Logo URL</label>
+              <div className="flex gap-3">
+                <input
+                  type="url"
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://example.com/logo.png"
+                  className="flex-1 px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors"
+                />
+                {logoUrl && (
+                  <div className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0 overflow-hidden bg-surface-700 flex items-center justify-center">
+                    <img src={logoUrl} alt="" className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Replaces the Glow Pay logo on the checkout page.</p>
             </div>
           </div>
         </div>

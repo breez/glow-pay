@@ -17,7 +17,11 @@ export interface Merchant {
   apiKey: string // backward compat — first active key
   apiKeys: ApiKey[]
   rotationEnabled: boolean
-  rotationCount: number // 3-10
+  rotationCount: number // 1-10
+  webhookUrl?: string | null
+  webhookSecret?: string | null
+  brandColor?: string | null   // hex, e.g. "#facc15"
+  logoUrl?: string | null       // URL to merchant logo image
   createdAt: string
 }
 
