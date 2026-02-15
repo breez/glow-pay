@@ -12,7 +12,6 @@ export function SetupWizard() {
   const navigate = useNavigate()
   const {
     isConnecting,
-    isConnected,
     lightningAddress,
     generateMnemonic,
     createWallet,
