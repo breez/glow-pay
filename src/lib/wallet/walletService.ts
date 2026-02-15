@@ -149,11 +149,18 @@ export const registerRandomAddressForAccount = async (
 }
 
 // Address rotation: weighted-random favoring least-recently-used
-// If rotation addresses exist, excludes primary; otherwise falls back to primary
-export const selectAddress = (): { address: string; accountIndex: number } => {
-  const rotationAddresses = walletPool
+// Only uses first `rotationCount` rotation addresses (accounts 1..rotationCount)
+// Primary (account 0) is never included in rotation
+export const selectAddress = (rotationCount?: number): { address: string; accountIndex: number } => {
+  let rotationAddresses = walletPool
     .filter(w => w.lightningAddress !== null && w.accountNumber !== 0)
     .map(w => ({ address: w.lightningAddress!, accountIndex: w.accountNumber }))
+
+  // If rotationCount is set, only use the first N rotation addresses
+  if (rotationCount !== undefined && rotationCount > 0) {
+    rotationAddresses = rotationAddresses
+      .filter(a => a.accountIndex >= 1 && a.accountIndex <= rotationCount)
+  }
 
   // If no rotation addresses, use primary
   if (rotationAddresses.length === 0) {

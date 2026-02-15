@@ -31,7 +31,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Select rotation address
   const usage = await getAddressUsageFromKv(merchant.id)
-  const selected = selectRotationAddress(merchant.lightningAddresses, usage, merchant.rotationEnabled ?? true)
+  const selected = selectRotationAddress(merchant.lightningAddresses, usage, merchant.rotationEnabled ?? true, merchant.rotationCount)
   await updateAddressUsageInKv(merchant.id, selected.accountIndex)
 
   try {

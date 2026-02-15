@@ -29,6 +29,7 @@ export interface ServerMerchant {
   apiKey: string // backward compat — first active key
   apiKeys: ServerApiKey[]
   rotationEnabled: boolean
+  rotationCount: number
   registeredAt: string
 }
 

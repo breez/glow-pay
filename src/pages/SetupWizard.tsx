@@ -147,6 +147,7 @@ export function SetupWizard() {
           lightningAddresses: merchant.lightningAddresses,
           redirectUrl: merchant.redirectUrl,
           rotationEnabled: merchant.rotationEnabled,
+          rotationCount: merchant.rotationCount,
         })
       } catch (err) {
         console.warn('Failed to sync merchant to server:', err)

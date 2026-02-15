@@ -52,6 +52,7 @@ export function DashboardCreatePayment() {
           lightningAddresses: merchant.lightningAddresses,
           redirectUrl: merchant.redirectUrl,
           rotationEnabled: merchant.rotationEnabled,
+          rotationCount: merchant.rotationCount,
         })
         result = await createPaymentViaApi(
           activeKey,

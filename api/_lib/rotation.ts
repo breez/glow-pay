@@ -4,7 +4,8 @@
 export function selectRotationAddress(
   addresses: string[],
   usage: Record<number, number>,
-  rotationEnabled: boolean = true
+  rotationEnabled: boolean = true,
+  rotationCount?: number
 ): { address: string; accountIndex: number } {
   // If only one address or rotation disabled, use primary
   if (addresses.length <= 1 || !rotationEnabled) {
@@ -13,9 +14,14 @@ export function selectRotationAddress(
   }
 
   // Rotation addresses are indices 1+ (skip primary at index 0)
-  const rotationAddrs = addresses
+  // Only use the first `rotationCount` if specified
+  let rotationAddrs = addresses
     .map((addr, i) => ({ address: addr, accountIndex: i }))
     .filter(a => a.accountIndex !== 0 && a.address)
+
+  if (rotationCount !== undefined && rotationCount > 0) {
+    rotationAddrs = rotationAddrs.filter(a => a.accountIndex <= rotationCount)
+  }
 
   // If no rotation addresses exist, fall back to primary
   if (rotationAddrs.length === 0) {

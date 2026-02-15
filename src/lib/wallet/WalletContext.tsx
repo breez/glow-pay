@@ -265,17 +265,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return addresses
   }, [])
 
-  // Enable rotation: expand pool and register random addresses
-  const enableRotation = useCallback(async (count: number): Promise<string[]> => {
-    const totalSize = 1 + count // primary + rotation
+  // Enable rotation: expand pool to 11 wallets and register 10 random addresses
+  // This is done once; the slider only controls how many are actively rotated
+  const enableRotation = useCallback(async (_count: number): Promise<string[]> => {
+    const totalSize = 11 // 1 primary + 10 rotation
     await expandWalletPool(totalSize)
 
     const addresses: string[] = []
-    // Primary is already registered
+    // Primary address (account 0) — not used in rotation
     const addr0 = getAllLightningAddresses()[0]
     if (addr0) addresses.push(addr0)
 
-    // Register random addresses for new accounts
+    // Register random addresses for accounts 1-10
     for (let i = 1; i < totalSize; i++) {
       const existing = getAllLightningAddresses().find((_, idx) => idx === i)
       if (existing) {

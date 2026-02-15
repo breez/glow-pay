@@ -77,6 +77,7 @@ export function DashboardIntegration() {
         lightningAddresses: m.lightningAddresses,
         redirectUrl: m.redirectUrl,
         rotationEnabled: m.rotationEnabled,
+        rotationCount: m.rotationCount,
       })
     } catch (err) {
       console.warn('Failed to sync merchant to server:', err)

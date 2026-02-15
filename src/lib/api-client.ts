@@ -8,6 +8,7 @@ export async function syncMerchantToServer(merchant: {
   lightningAddresses: string[]
   redirectUrl: string | null
   rotationEnabled?: boolean
+  rotationCount?: number
 }): Promise<{ success: boolean }> {
   const res = await fetch(`${API_BASE}/merchants`, {
     method: 'POST',

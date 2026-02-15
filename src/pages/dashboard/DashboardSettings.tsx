@@ -105,6 +105,7 @@ export function DashboardSettings() {
         lightningAddresses: updatedMerchant.lightningAddresses,
         redirectUrl: updatedMerchant.redirectUrl,
         rotationEnabled: updatedMerchant.rotationEnabled,
+        rotationCount: updatedMerchant.rotationCount,
       }).catch(err => console.warn('Failed to sync merchant to server:', err))
 
       setSuccess(true)
@@ -141,9 +142,12 @@ export function DashboardSettings() {
           await syncMerchantToServer({
             merchantId: updatedMerchant.id,
             apiKey: activeKeys[0]?.key || updatedMerchant.apiKey,
+            apiKeys: updatedMerchant.apiKeys,
             storeName: updatedMerchant.storeName,
             lightningAddresses: updatedMerchant.lightningAddresses,
             redirectUrl: updatedMerchant.redirectUrl,
+            rotationEnabled: updatedMerchant.rotationEnabled,
+            rotationCount: updatedMerchant.rotationCount,
           }).catch(err => console.warn('Failed to sync merchant to server:', err))
         }
       } catch (err) {
@@ -161,7 +165,9 @@ export function DashboardSettings() {
     }
   }
 
-  const addresses = merchant?.lightningAddresses || allLightningAddresses
+  const allAddresses = merchant?.lightningAddresses || allLightningAddresses
+  // Rotation addresses only (skip primary at index 0), limited to rotationCount
+  const rotationAddresses = allAddresses.slice(1, 1 + rotationCount)
 
   return (
     <div className="max-w-2xl">
@@ -274,27 +280,25 @@ export function DashboardSettings() {
                 </div>
               </div>
 
-              {/* Show rotation addresses */}
-              {addresses.length > 1 && (
+              {/* Show rotation addresses (excludes primary) */}
+              {rotationAddresses.length > 0 && (
                 <div>
                   <button
                     onClick={() => setShowAddresses(!showAddresses)}
                     className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-400"
                   >
                     <Shield className="w-4 h-4" />
-                    {showAddresses ? 'Hide' : 'Show'} {addresses.length} addresses
+                    {showAddresses ? 'Hide' : 'Show'} {rotationAddresses.length} rotation addresses
                   </button>
                   {showAddresses && (
                     <div className="mt-3 space-y-2">
-                      {addresses.map((addr: string, i: number) => (
+                      {rotationAddresses.map((addr: string, i: number) => (
                         <div
                           key={addr}
                           className="flex items-center justify-between px-3 py-2 bg-surface-900 rounded-lg text-sm"
                         >
                           <span className="font-mono text-gray-400">{addr}</span>
-                          <span className={`text-xs ${i === 0 ? 'text-glow-400' : 'text-gray-600'}`}>
-                            {i === 0 ? 'Primary' : `Rotation ${i}`}
-                          </span>
+                          <span className="text-xs text-gray-600">Rotation {i + 1}</span>
                         </div>
                       ))}
                     </div>
