@@ -69,7 +69,7 @@ export function LandingPage() {
             </div>
             <h3 className="text-xl font-bold mb-2">Lightning Fast</h3>
             <p className="text-gray-400">
-              Instant payments via Lightning Network. Sub-second confirmations,
+              Instant bitcoin payments. Sub-second confirmations,
               near-zero fees.
             </p>
           </div>
@@ -93,20 +93,20 @@ export function LandingPage() {
               <div className="w-16 h-16 rounded-full bg-glow-400 text-surface-900 text-2xl font-bold flex items-center justify-center mx-auto mb-4">
                 1
               </div>
-              <h3 className="text-lg font-bold mb-2">Create Wallet</h3>
+              <h3 className="text-lg font-bold mb-2">Create Your Wallet</h3>
               <p className="text-gray-400">
-                Use Glow to create your Lightning wallet and get your
-                @breez.cash address
+                Glow Pay creates a non-custodial Lightning wallet for you
+                in seconds. Your keys, your Bitcoin.
               </p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-glow-400 text-surface-900 text-2xl font-bold flex items-center justify-center mx-auto mb-4">
                 2
               </div>
-              <h3 className="text-lg font-bold mb-2">Connect</h3>
+              <h3 className="text-lg font-bold mb-2">Create a Payment</h3>
               <p className="text-gray-400">
-                Register your Lightning address with Glow Pay to enable
-                payment pages
+                Set an amount, add a description, and get a shareable
+                payment link instantly.
               </p>
             </div>
             <div className="text-center">
@@ -115,8 +115,8 @@ export function LandingPage() {
               </div>
               <h3 className="text-lg font-bold mb-2">Get Paid</h3>
               <p className="text-gray-400">
-                Share payment links or embed checkout. Funds arrive directly
-                in your wallet.
+                Share the link with your customer. Funds arrive directly
+                in your wallet — no middlemen.
               </p>
             </div>
           </div>
