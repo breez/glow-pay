@@ -112,7 +112,7 @@ export const expandWalletPool = async (targetSize: number): Promise<void> => {
   walletPool = [...walletPool, ...newInstances].sort((a, b) => a.accountNumber - b.accountNumber)
 }
 
-// Generate a random 8-char lowercase username
+// Generate a random 8-char lowercase username (for rotation addresses)
 export const generateRandomUsername = (): string => {
   const chars = 'abcdefghijklmnopqrstuvwxyz'
   let result = ''
@@ -120,6 +120,25 @@ export const generateRandomUsername = (): string => {
     result += chars.charAt(Math.floor(Math.random() * chars.length))
   }
   return result
+}
+
+// Generate a friendly "ColorAnimal" username (for primary address)
+// Matches glow-web's randomName pattern
+const COLORS = [
+  'salmon', 'blue', 'turquoise', 'orchid', 'purple', 'tomato', 'cyan', 'crimson',
+  'orange', 'lime', 'pink', 'green', 'red', 'yellow', 'azure', 'silver', 'magenta',
+  'olive', 'violet', 'rose', 'wine', 'mint', 'indigo', 'jade', 'coral',
+]
+const ANIMALS = [
+  'bat', 'bear', 'boar', 'cat', 'chick', 'cow', 'deer', 'dog', 'eagle', 'elephant',
+  'fox', 'frog', 'hippo', 'hummingbird', 'koala', 'lion', 'monkey', 'mouse', 'owl',
+  'ox', 'panda', 'pig', 'rabbit', 'seagull', 'sheep', 'snake',
+]
+
+export const generateFriendlyUsername = (): string => {
+  const color = COLORS[Math.floor(Math.random() * COLORS.length)]
+  const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)]
+  return `${color}${animal}`
 }
 
 // Register a random address on a specific account (for rotation)

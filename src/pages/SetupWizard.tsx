@@ -4,7 +4,7 @@ import { Zap, Copy, Check, ArrowRight, ArrowLeft, Shield, Key, Loader2, AlertCir
 import { useWallet } from '@/lib/wallet/WalletContext'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
-import { generateRandomUsername } from '@/lib/wallet/walletService'
+import { generateFriendlyUsername } from '@/lib/wallet/walletService'
 import type { Merchant } from '@/lib/types'
 
 type Step = 'welcome' | 'generate' | 'complete'
@@ -55,7 +55,7 @@ export function SetupWizard() {
       await createWallet(mnemonic)
 
       // Auto-register a random Lightning address
-      const randomUsername = generateRandomUsername()
+      const randomUsername = generateFriendlyUsername()
       await setLightningUsername(randomUsername)
       await refreshLightningAddress()
 
