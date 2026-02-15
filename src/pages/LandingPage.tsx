@@ -95,7 +95,7 @@ export function LandingPage() {
               </div>
               <h3 className="text-lg font-bold mb-2">Create Your Wallet</h3>
               <p className="text-gray-400">
-                Glow Pay creates a non-custodial Lightning wallet for you
+                Glow Pay creates a non-custodial wallet for you
                 in seconds. Your keys, your Bitcoin.
               </p>
             </div>
@@ -115,8 +115,8 @@ export function LandingPage() {
               </div>
               <h3 className="text-lg font-bold mb-2">Get Paid</h3>
               <p className="text-gray-400">
-                Share the link with your customer. Funds arrive directly
-                in your wallet — no middlemen.
+                Receive payments on your site. Funds arrive directly
+                in your wallet, no middlemen.
               </p>
             </div>
           </div>
