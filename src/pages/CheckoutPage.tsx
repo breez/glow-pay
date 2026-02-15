@@ -225,7 +225,7 @@ export function CheckoutPage() {
           <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Payment Not Found</h1>
           <p className="text-gray-400">
-            We could not locate this payment. The link may be invalid or the payment may have expired.
+            {error || 'The link may be invalid or the payment may have expired.'}
           </p>
         </div>
       </div>
