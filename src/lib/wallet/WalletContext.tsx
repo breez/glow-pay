@@ -3,6 +3,8 @@ import * as bip39 from 'bip39'
 import * as breezSdk from '@breeztech/breez-sdk-spark'
 import {
   initWalletPool,
+  expandWalletPool,
+  registerRandomAddressForAccount,
   getWalletInfo,
   disconnect,
   connected,
@@ -18,7 +20,7 @@ import {
   getAllLightningAddresses,
   refreshAllAddresses,
   selectAddress,
-  POOL_SIZE,
+  getPoolSize,
 } from './walletService'
 import type { AggregateBalance } from './walletService'
 
@@ -48,19 +50,11 @@ interface WalletContextValue {
   selectPaymentAddress: () => { address: string; accountIndex: number }
   refreshAggregateBalance: () => Promise<void>
   registerAllAddresses: (baseUsername: string) => Promise<string[]>
+  enableRotation: (count: number) => Promise<string[]>
+  registerAddressForAccount: (accountNumber: number, username: string) => Promise<breezSdk.LightningAddressInfo>
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null)
-
-// Generate a random 3-char suffix for rotation usernames
-function randomSuffix(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let result = ''
-  for (let i = 0; i < 3; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return result
-}
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false)
@@ -122,7 +116,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setPoolSyncProgress(syncedAccountsRef.current.size)
 
       // All wallets synced
-      if (syncedAccountsRef.current.size >= POOL_SIZE) {
+      if (syncedAccountsRef.current.size >= getPoolSize()) {
         if (isRestoringRef.current) {
           isRestoringRef.current = false
           setIsSyncing(false)
@@ -259,36 +253,47 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       addresses.push(result.lightningAddress)
     }
 
-    // Accounts 1-5: derived usernames with random suffix (rotation addresses)
-    for (let i = 1; i < POOL_SIZE; i++) {
-      let registered = false
-      let attempts = 0
-
-      while (!registered && attempts < 5) {
-        const suffix = randomSuffix()
-        const derivedUsername = `${baseUsername}_${suffix}`
-        try {
-          const result = await registerLightningAddressForAccount(
-            i,
-            derivedUsername,
-            `Pay to ${derivedUsername}@breez.cash`
-          )
-          addresses.push(result.lightningAddress)
-          registered = true
-        } catch {
-          attempts++
-          console.warn(`Username ${derivedUsername} failed, retrying (attempt ${attempts})`)
-        }
-      }
-
-      if (!registered) {
-        throw new Error(`Failed to register Lightning address for account ${i} after 5 attempts`)
-      }
+    // Accounts 1+: random usernames (rotation addresses)
+    const poolSize = getPoolSize()
+    for (let i = 1; i < poolSize; i++) {
+      const addr = await registerRandomAddressForAccount(i)
+      addresses.push(addr)
     }
 
     await refreshAllAddresses()
     setAllLightningAddresses(getAllLightningAddresses())
     return addresses
+  }, [])
+
+  // Enable rotation: expand pool and register random addresses
+  const enableRotation = useCallback(async (count: number): Promise<string[]> => {
+    const totalSize = 1 + count // primary + rotation
+    await expandWalletPool(totalSize)
+
+    const addresses: string[] = []
+    // Primary is already registered
+    const addr0 = getAllLightningAddresses()[0]
+    if (addr0) addresses.push(addr0)
+
+    // Register random addresses for new accounts
+    for (let i = 1; i < totalSize; i++) {
+      const existing = getAllLightningAddresses().find((_, idx) => idx === i)
+      if (existing) {
+        addresses.push(existing)
+      } else {
+        const addr = await registerRandomAddressForAccount(i)
+        addresses.push(addr)
+      }
+    }
+
+    await refreshAllAddresses()
+    setAllLightningAddresses(getAllLightningAddresses())
+    setAggregateBalance(await getAggregateBalance())
+    return addresses
+  }, [])
+
+  const registerAddressForAccount = useCallback(async (accountNumber: number, username: string) => {
+    return await registerLightningAddressForAccount(accountNumber, username, `Pay to ${username}@breez.cash`)
   }, [])
 
   return (
@@ -315,6 +320,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       selectPaymentAddress,
       refreshAggregateBalance,
       registerAllAddresses,
+      enableRotation,
+      registerAddressForAccount,
     }}>
       {children}
     </WalletContext.Provider>

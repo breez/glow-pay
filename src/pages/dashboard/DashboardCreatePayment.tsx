@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Zap, ArrowLeft, ExternalLink, Copy, Check } from 'lucide-react'
 import { getMerchant, savePayment } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
-import { createPaymentViaApi } from '@/lib/api-client'
+import { createPaymentViaApi, syncMerchantToServer } from '@/lib/api-client'
 import type { Payment } from '@/lib/types'
 
 export function DashboardCreatePayment() {
@@ -34,11 +34,31 @@ export function DashboardCreatePayment() {
     setError(null)
 
     try {
-      const result = await createPaymentViaApi(
-        merchant.apiKey,
+      const activeKey = merchant.apiKeys?.find(k => k.active)?.key || merchant.apiKey
+
+      let result = await createPaymentViaApi(
+        activeKey,
         sats,
         description || undefined,
       )
+
+      // If 401, auto-sync merchant to server and retry
+      if (!result.success && result.error?.includes('Invalid API key')) {
+        await syncMerchantToServer({
+          merchantId: merchant.id,
+          apiKey: activeKey,
+          apiKeys: merchant.apiKeys,
+          storeName: merchant.storeName,
+          lightningAddresses: merchant.lightningAddresses,
+          redirectUrl: merchant.redirectUrl,
+          rotationEnabled: merchant.rotationEnabled,
+        })
+        result = await createPaymentViaApi(
+          activeKey,
+          sats,
+          description || undefined,
+        )
+      }
 
       if (!result.success || !result.data) {
         setError(result.error || 'Failed to create payment')
@@ -225,11 +245,14 @@ export function DashboardCreatePayment() {
           <label className="block text-sm text-gray-400 mb-2">Amount (sats) *</label>
           <div className="relative">
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={amountSats}
-              onChange={(e) => setAmountSats(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '')
+                setAmountSats(val)
+              }}
               placeholder="1000"
-              min="1"
               className="w-full px-4 py-3 bg-surface-700 border border-white/10 rounded-xl focus:outline-none focus:border-glow-400 transition-colors text-2xl font-bold"
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">sats</span>

@@ -18,7 +18,7 @@ class WebLogger {
   }
 }
 
-export const POOL_SIZE = 6
+export const MAX_POOL_SIZE = 11 // 1 primary + up to 10 rotation
 
 export interface WalletInstance {
   sdk: breezSdk.BreezSdk
@@ -40,7 +40,39 @@ let logger: WebLogger | null = null
 
 const API_KEY = 'MIIBazCCAR2gAwIBAgIHPdG0GExEwzAFBgMrZXAwEDEOMAwGA1UEAxMFQnJlZXowHhcNMjUwMjIwMTIyODIxWhcNMzUwMjE4MTIyODIxWjAnMQ0wCwYDVQQKEwRUZXN0MRYwFAYDVQQDEw1Sb3kgU2hlaW5mZWxkMCowBQYDK2VwAyEA0IP1y98gPByiIMoph1P0G6cctLb864rNXw1LRLOpXXejfzB9MA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTaOaPuXmtLDTJVv++VYBiQr9gHCTAfBgNVHSMEGDAWgBTeqtaSVvON53SSFvxMtiCyayiYazAdBgNVHREEFjAUgRJraW5nb25seUBnbWFpbC5jb20wBQYDK2VwA0EAINTIeR5+LrLIngPjGFrBrPzdRv4yN8kjNgRVdFDoa1fZPlynm4GjKoTGg8sHxEcRKP1QN2YP0s6NSDT3C+MIDw=='
 
-export const initWalletPool = async (mnemonic: string, network: breezSdk.Network = 'mainnet'): Promise<void> => {
+const connectOneWallet = async (i: number, network: breezSdk.Network, mnemonic: string): Promise<WalletInstance> => {
+  const config = breezSdk.defaultConfig(network)
+  config.apiKey = API_KEY
+  config.privateEnabledDefault = false
+  config.lnurlDomain = 'breez.cash'
+
+  const keySetConfig: breezSdk.KeySetConfig = {
+    keySetType: 'default',
+    useAddressIndex: false,
+    accountNumber: i,
+  }
+
+  const signer = breezSdk.defaultExternalSigner(mnemonic, null, network, keySetConfig)
+  const sdk = await breezSdk.connectWithSigner(config, signer, `glow-pay-wallet-${i}`)
+
+  // Enable public mode for LNURL-verify
+  await sdk.updateUserSettings({ sparkPrivateModeEnabled: false }).catch(() => {})
+
+  const addrInfo = await sdk.getLightningAddress().catch(() => undefined)
+
+  console.log(`Wallet account ${i} connected${addrInfo ? ` (${addrInfo.lightningAddress})` : ''}`)
+
+  return {
+    sdk,
+    accountNumber: i,
+    lightningAddress: addrInfo?.lightningAddress ?? null,
+  }
+}
+
+let savedMnemonicRef: string | null = null
+let savedNetworkRef: breezSdk.Network = 'mainnet'
+
+export const initWalletPool = async (mnemonic: string, network: breezSdk.Network = 'mainnet', poolSize: number = 1): Promise<void> => {
   if (walletPool.length > 0) return
 
   if (!isWasmInitialized()) {
@@ -52,53 +84,85 @@ export const initWalletPool = async (mnemonic: string, network: breezSdk.Network
     breezSdk.initLogging(logger)
   }
 
-  // Connect all wallets in parallel for faster startup
-  const connectOne = async (i: number): Promise<WalletInstance> => {
-    const config = breezSdk.defaultConfig(network)
-    config.apiKey = API_KEY
-    config.privateEnabledDefault = false
-    config.lnurlDomain = 'breez.cash'
+  savedMnemonicRef = mnemonic
+  savedNetworkRef = network
 
-    const keySetConfig: breezSdk.KeySetConfig = {
-      keySetType: 'default',
-      useAddressIndex: false,
-      accountNumber: i,
-    }
+  const size = Math.min(Math.max(poolSize, 1), MAX_POOL_SIZE)
+  const indices = Array.from({ length: size }, (_, i) => i)
+  const instances = await Promise.all(indices.map(i => connectOneWallet(i, network, mnemonic)))
 
-    const signer = breezSdk.defaultExternalSigner(mnemonic, null, network, keySetConfig)
-    const sdk = await breezSdk.connectWithSigner(config, signer, `glow-pay-wallet-${i}`)
-
-    // Enable public mode for LNURL-verify
-    await sdk.updateUserSettings({ sparkPrivateModeEnabled: false }).catch(() => {})
-
-    const addrInfo = await sdk.getLightningAddress().catch(() => undefined)
-
-    console.log(`Wallet account ${i} connected${addrInfo ? ` (${addrInfo.lightningAddress})` : ''}`)
-
-    return {
-      sdk,
-      accountNumber: i,
-      lightningAddress: addrInfo?.lightningAddress ?? null,
-    }
-  }
-
-  const indices = Array.from({ length: POOL_SIZE }, (_, i) => i)
-  const instances = await Promise.all(indices.map(connectOne))
-
-  // Sort by account number to maintain consistent ordering
   instances.sort((a, b) => a.accountNumber - b.accountNumber)
   walletPool = instances
 }
 
-// Address rotation: weighted-random favoring least-recently-used (excludes primary account 0)
+// Expand pool by adding more wallet instances (for rotation)
+export const expandWalletPool = async (targetSize: number): Promise<void> => {
+  if (!savedMnemonicRef) throw new Error('Wallet pool not initialized')
+  const size = Math.min(Math.max(targetSize, 1), MAX_POOL_SIZE)
+  const existingNums = new Set(walletPool.map(w => w.accountNumber))
+  const newIndices: number[] = []
+  for (let i = 0; i < size; i++) {
+    if (!existingNums.has(i)) newIndices.push(i)
+  }
+  if (newIndices.length === 0) return
+
+  const newInstances = await Promise.all(
+    newIndices.map(i => connectOneWallet(i, savedNetworkRef, savedMnemonicRef!))
+  )
+  walletPool = [...walletPool, ...newInstances].sort((a, b) => a.accountNumber - b.accountNumber)
+}
+
+// Generate a random 8-char lowercase username
+export const generateRandomUsername = (): string => {
+  const chars = 'abcdefghijklmnopqrstuvwxyz'
+  let result = ''
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
+
+// Register a random address on a specific account (for rotation)
+export const registerRandomAddressForAccount = async (
+  accountNumber: number
+): Promise<string> => {
+  const instance = walletPool.find(w => w.accountNumber === accountNumber)
+  if (!instance) throw new Error(`Wallet account ${accountNumber} not connected`)
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const username = generateRandomUsername()
+    try {
+      const available = await instance.sdk.checkLightningAddressAvailable({ username })
+      if (available) {
+        const result = await instance.sdk.registerLightningAddress({
+          username,
+          description: `Pay to ${username}@breez.cash`,
+        })
+        instance.lightningAddress = result.lightningAddress
+        return result.lightningAddress
+      }
+    } catch {
+      // try next
+    }
+  }
+  throw new Error(`Failed to register random address for account ${accountNumber} after 5 attempts`)
+}
+
+// Address rotation: weighted-random favoring least-recently-used
+// If rotation addresses exist, excludes primary; otherwise falls back to primary
 export const selectAddress = (): { address: string; accountIndex: number } => {
-  const addressesWithIndex = walletPool
+  const rotationAddresses = walletPool
     .filter(w => w.lightningAddress !== null && w.accountNumber !== 0)
     .map(w => ({ address: w.lightningAddress!, accountIndex: w.accountNumber }))
 
-  if (addressesWithIndex.length === 0) {
-    throw new Error('No rotation Lightning addresses registered (accounts 1-5)')
+  // If no rotation addresses, use primary
+  if (rotationAddresses.length === 0) {
+    const primary = walletPool.find(w => w.accountNumber === 0 && w.lightningAddress !== null)
+    if (!primary) throw new Error('No Lightning addresses registered')
+    return { address: primary.lightningAddress!, accountIndex: 0 }
   }
+
+  const addressesWithIndex = rotationAddresses
 
   const usage = getAddressUsage()
 
@@ -230,8 +294,11 @@ export const disconnectAll = async (): Promise<void> => {
   walletPool = []
 }
 
-// Check if all wallets are connected
-export const allConnected = (): boolean => walletPool.length === POOL_SIZE
+// Check if all wallets are connected (at least primary)
+export const allConnected = (): boolean => walletPool.length > 0
+
+// Get current pool size
+export const getPoolSize = (): number => walletPool.length
 
 // Check if any wallet is connected (for basic operations)
 export const connected = (): boolean => walletPool.length > 0

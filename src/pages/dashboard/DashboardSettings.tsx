@@ -1,108 +1,164 @@
 import { useState, useEffect } from 'react'
-import { Save, Copy, Check, RefreshCw, Zap, Shield, Code } from 'lucide-react'
+import { Save, RefreshCw, Zap, Shield, AlertTriangle } from 'lucide-react'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
-import { fetchLnurlPayInfo } from '@/lib/lnurl'
 import { useWallet } from '@/lib/wallet/WalletContext'
 import type { Merchant } from '@/lib/types'
 
 export function DashboardSettings() {
-  const { allLightningAddresses } = useWallet()
+  const {
+    allLightningAddresses,
+    checkUsernameAvailable,
+    setLightningUsername,
+    enableRotation,
+    refreshLightningAddress,
+  } = useWallet()
+
   const [merchant, setMerchant] = useState<Merchant | null>(null)
-  const [lightningUsername, setLightningUsername] = useState('')
+  const [lightningUsername, setLightningUsernameState] = useState('')
+  const [originalUsername, setOriginalUsername] = useState('')
   const [storeName, setStoreName] = useState('')
   const [redirectUrl, setRedirectUrl] = useState('')
+  const [rotationEnabled, setRotationEnabled] = useState(false)
+  const [rotationCount, setRotationCount] = useState(5)
   const [saving, setSaving] = useState(false)
-  const [validating, setValidating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [copiedKey, setCopiedKey] = useState(false)
   const [showAddresses, setShowAddresses] = useState(false)
+  const [showUsernameWarning, setShowUsernameWarning] = useState(false)
+  const [enablingRotation, setEnablingRotation] = useState(false)
 
   useEffect(() => {
     const m = getMerchant()
     if (m) {
       setMerchant(m)
-      // Extract username from full address (e.g., "user@breez.cash" -> "user")
       const username = m.lightningAddress.split('@')[0] || ''
-      setLightningUsername(username)
+      setLightningUsernameState(username)
+      setOriginalUsername(username)
       setStoreName(m.storeName || '')
       setRedirectUrl(m.redirectUrl || '')
+      setRotationEnabled(m.rotationEnabled ?? false)
+      setRotationCount(m.rotationCount ?? 5)
     }
   }, [])
 
-  const validateLightningAddress = async (username: string): Promise<boolean> => {
-    try {
-      setValidating(true)
-      setError(null)
-      const fullAddress = `${username}@breez.cash`
-      await fetchLnurlPayInfo(fullAddress)
-      return true
-    } catch {
-      setError('Invalid username. Make sure this matches your Glow wallet username.')
-      return false
-    } finally {
-      setValidating(false)
-    }
-  }
+  const usernameChanged = lightningUsername !== originalUsername && originalUsername !== ''
 
   const handleSave = async () => {
-    setSaving(true)
-    setError(null)
-    setSuccess(false)
-
-    // Validate Lightning address
-    const isValid = await validateLightningAddress(lightningUsername)
-    if (!isValid) {
-      setSaving(false)
+    // If username changed and address already exists, show warning first
+    if (usernameChanged && !showUsernameWarning) {
+      setShowUsernameWarning(true)
       return
     }
 
-    // Create or update merchant
-    const fullAddress = `${lightningUsername}@breez.cash`
-    const updatedMerchant: Merchant = {
-      id: merchant?.id || generateId(),
-      lightningAddress: fullAddress,
-      lightningAddresses: merchant?.lightningAddresses || allLightningAddresses.length > 0
-        ? (merchant?.lightningAddresses || allLightningAddresses)
-        : [fullAddress],
-      storeName,
-      redirectUrl: redirectUrl || null,
-      redirectSecret: merchant?.redirectSecret || generateSecret(),
-      apiKey: merchant?.apiKey || generateApiKey(),
-      createdAt: merchant?.createdAt || new Date().toISOString(),
+    setSaving(true)
+    setError(null)
+    setSuccess(false)
+    setShowUsernameWarning(false)
+
+    try {
+      // If username changed, register the new address via SDK
+      if (usernameChanged) {
+        const available = await checkUsernameAvailable(lightningUsername)
+        if (!available) {
+          setError(`Username "${lightningUsername}" is not available.`)
+          setSaving(false)
+          return
+        }
+        await setLightningUsername(lightningUsername)
+        await refreshLightningAddress()
+      }
+
+      const fullAddress = `${lightningUsername}@breez.cash`
+      const updatedMerchant: Merchant = {
+        id: merchant?.id || generateId(),
+        lightningAddress: fullAddress,
+        lightningAddresses: allLightningAddresses.length > 0
+          ? allLightningAddresses
+          : (merchant?.lightningAddresses || [fullAddress]),
+        storeName,
+        redirectUrl: redirectUrl || null,
+        redirectSecret: merchant?.redirectSecret || generateSecret(),
+        apiKey: merchant?.apiKey || generateApiKey(),
+        apiKeys: merchant?.apiKeys || [{
+          key: merchant?.apiKey || generateApiKey(),
+          label: 'Default',
+          createdAt: new Date().toISOString(),
+          active: true,
+        }],
+        rotationEnabled,
+        rotationCount,
+        createdAt: merchant?.createdAt || new Date().toISOString(),
+      }
+
+      saveMerchant(updatedMerchant)
+      setMerchant(updatedMerchant)
+      setOriginalUsername(lightningUsername)
+
+      // Sync to server
+      const activeKeys = updatedMerchant.apiKeys.filter(k => k.active)
+      await syncMerchantToServer({
+        merchantId: updatedMerchant.id,
+        apiKey: activeKeys[0]?.key || updatedMerchant.apiKey,
+        apiKeys: updatedMerchant.apiKeys,
+        storeName: updatedMerchant.storeName,
+        lightningAddresses: updatedMerchant.lightningAddresses,
+        redirectUrl: updatedMerchant.redirectUrl,
+        rotationEnabled: updatedMerchant.rotationEnabled,
+      }).catch(err => console.warn('Failed to sync merchant to server:', err))
+
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save settings')
+    } finally {
+      setSaving(false)
     }
-
-    saveMerchant(updatedMerchant)
-    setMerchant(updatedMerchant)
-
-    // Sync to server for API access
-    syncMerchantToServer({
-      merchantId: updatedMerchant.id,
-      apiKey: updatedMerchant.apiKey,
-      storeName: updatedMerchant.storeName,
-      lightningAddresses: updatedMerchant.lightningAddresses,
-      redirectUrl: updatedMerchant.redirectUrl,
-    }).catch(err => console.warn('Failed to sync merchant to server:', err))
-
-    setSaving(false)
-    setSuccess(true)
-    setTimeout(() => setSuccess(false), 3000)
   }
 
-  const copyApiKey = async () => {
-    if (!merchant?.apiKey) return
-    await navigator.clipboard.writeText(merchant.apiKey)
-    setCopiedKey(true)
-    setTimeout(() => setCopiedKey(false), 2000)
-  }
+  const handleToggleRotation = async (enabled: boolean) => {
+    if (enabled && !rotationEnabled) {
+      // Enable rotation: expand wallet pool and register addresses
+      setEnablingRotation(true)
+      setError(null)
+      try {
+        const addresses = await enableRotation(rotationCount)
+        setRotationEnabled(true)
 
-  const regenerateApiKey = () => {
-    if (!merchant) return
-    const newKey = generateApiKey()
-    const updatedMerchant = { ...merchant, apiKey: newKey }
-    saveMerchant(updatedMerchant)
-    setMerchant(updatedMerchant)
+        // Update merchant with new addresses
+        if (merchant) {
+          const updatedMerchant: Merchant = {
+            ...merchant,
+            rotationEnabled: true,
+            rotationCount,
+            lightningAddresses: addresses,
+          }
+          saveMerchant(updatedMerchant)
+          setMerchant(updatedMerchant)
+
+          // Sync to server
+          const activeKeys = updatedMerchant.apiKeys.filter(k => k.active)
+          await syncMerchantToServer({
+            merchantId: updatedMerchant.id,
+            apiKey: activeKeys[0]?.key || updatedMerchant.apiKey,
+            storeName: updatedMerchant.storeName,
+            lightningAddresses: updatedMerchant.lightningAddresses,
+            redirectUrl: updatedMerchant.redirectUrl,
+          }).catch(err => console.warn('Failed to sync merchant to server:', err))
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to enable rotation')
+      } finally {
+        setEnablingRotation(false)
+      }
+    } else {
+      setRotationEnabled(false)
+      if (merchant) {
+        const updatedMerchant: Merchant = { ...merchant, rotationEnabled: false }
+        saveMerchant(updatedMerchant)
+        setMerchant(updatedMerchant)
+      }
+    }
   }
 
   const addresses = merchant?.lightningAddresses || allLightningAddresses
@@ -120,50 +176,132 @@ export function DashboardSettings() {
             Lightning Address
           </h2>
           <p className="text-gray-400 text-sm mb-4">
-            Your primary Lightning address. Payments are distributed across rotation addresses for privacy.
+            Your primary Lightning address for receiving payments.
           </p>
           <div className="relative flex">
             <input
               type="text"
               value={lightningUsername}
-              onChange={(e) => setLightningUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+              onChange={(e) => setLightningUsernameState(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
               placeholder="yourname"
               className="flex-1 px-4 py-3 bg-surface-700 border border-white/10 border-r-0 rounded-l-xl focus:outline-none focus:border-glow-400 focus:z-10 transition-colors"
             />
             <div className="px-4 py-3 bg-surface-900 border border-white/10 rounded-r-xl text-gray-400 font-medium flex items-center">
               @breez.cash
-              {validating && (
-                <RefreshCw className="w-4 h-4 animate-spin text-gray-400 ml-2" />
-              )}
             </div>
           </div>
 
-          {/* Rotation addresses */}
-          {addresses.length > 1 && (
-            <div className="mt-4">
-              <button
-                onClick={() => setShowAddresses(!showAddresses)}
-                className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-400"
-              >
-                <Shield className="w-4 h-4" />
-                {showAddresses ? 'Hide' : 'Show'} {addresses.length} rotation addresses
-              </button>
-              {showAddresses && (
-                <div className="mt-3 space-y-2">
-                  {addresses.map((addr: string, i: number) => (
-                    <div
-                      key={addr}
-                      className="flex items-center justify-between px-3 py-2 bg-surface-900 rounded-lg text-sm"
+          {/* Username change warning */}
+          {showUsernameWarning && (
+            <div className="mt-4 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-bold text-amber-400 mb-1">Confirm Username Change</p>
+                  <p className="text-sm text-gray-300">
+                    Changing your Lightning Address username will permanently release '{originalUsername}@breez.cash', making it available for other users.
+                  </p>
+                  <p className="text-sm text-gray-300 mt-2">Do you want to proceed?</p>
+                  <div className="flex gap-3 mt-3">
+                    <button
+                      onClick={handleSave}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-surface-900 font-bold rounded-lg text-sm transition-colors"
                     >
-                      <span className="font-mono text-gray-400">{addr}</span>
-                      <span className={`text-xs ${i === 0 ? 'text-glow-400' : 'text-gray-600'}`}>
-                        {i === 0 ? 'Primary' : `Rotation ${i}`}
-                      </span>
+                      Change
+                    </button>
+                    <button
+                      onClick={() => setShowUsernameWarning(false)}
+                      className="px-4 py-2 bg-surface-700 hover:bg-surface-600 rounded-lg text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Privacy Rotation */}
+        <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
+          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+            <Shield className="w-5 h-5 text-glow-400" />
+            Privacy Rotation
+          </h2>
+          <p className="text-gray-400 text-sm mb-4">
+            Distribute payments across multiple random addresses for enhanced privacy. Each address is a separate wallet derived from your seed.
+          </p>
+
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm font-medium">Enable address rotation</span>
+            <button
+              onClick={() => handleToggleRotation(!rotationEnabled)}
+              disabled={enablingRotation}
+              className={`relative w-12 h-6 rounded-full transition-colors ${
+                rotationEnabled ? 'bg-glow-400' : 'bg-surface-600'
+              } ${enablingRotation ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                rotationEnabled ? 'translate-x-6' : 'translate-x-0.5'
+              }`} />
+            </button>
+          </div>
+
+          {enablingRotation && (
+            <div className="flex items-center gap-2 text-sm text-glow-400 mb-4">
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Setting up rotation wallets...
+            </div>
+          )}
+
+          {rotationEnabled && (
+            <>
+              <div className="mb-4">
+                <label className="block text-sm text-gray-400 mb-2">
+                  Number of rotation addresses: <span className="text-white font-bold">{rotationCount}</span>
+                </label>
+                <input
+                  type="range"
+                  min={3}
+                  max={10}
+                  value={rotationCount}
+                  onChange={(e) => setRotationCount(Number(e.target.value))}
+                  className="w-full accent-glow-400"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>3</span>
+                  <span>10</span>
+                </div>
+              </div>
+
+              {/* Show rotation addresses */}
+              {addresses.length > 1 && (
+                <div>
+                  <button
+                    onClick={() => setShowAddresses(!showAddresses)}
+                    className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-400"
+                  >
+                    <Shield className="w-4 h-4" />
+                    {showAddresses ? 'Hide' : 'Show'} {addresses.length} addresses
+                  </button>
+                  {showAddresses && (
+                    <div className="mt-3 space-y-2">
+                      {addresses.map((addr: string, i: number) => (
+                        <div
+                          key={addr}
+                          className="flex items-center justify-between px-3 py-2 bg-surface-900 rounded-lg text-sm"
+                        >
+                          <span className="font-mono text-gray-400">{addr}</span>
+                          <span className={`text-xs ${i === 0 ? 'text-glow-400' : 'text-gray-600'}`}>
+                            {i === 0 ? 'Primary' : `Rotation ${i}`}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
 
@@ -198,81 +336,6 @@ export function DashboardSettings() {
             </div>
           </div>
         </div>
-
-        {/* API Key (only show if merchant exists) */}
-        {merchant && (
-          <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
-            <h2 className="text-lg font-bold mb-4">API Key</h2>
-            <p className="text-gray-400 text-sm mb-4">
-              Use this key to create payments programmatically via the API.
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={merchant.apiKey}
-                readOnly
-                className="flex-1 px-4 py-3 bg-surface-900 border border-white/10 rounded-xl font-mono text-sm text-gray-400"
-              />
-              <button
-                onClick={copyApiKey}
-                className="px-4 py-3 bg-surface-700 hover:bg-surface-600 rounded-xl transition-colors"
-                title="Copy API key"
-              >
-                {copiedKey ? (
-                  <Check className="w-5 h-5 text-green-400" />
-                ) : (
-                  <Copy className="w-5 h-5" />
-                )}
-              </button>
-              <button
-                onClick={regenerateApiKey}
-                className="px-4 py-3 bg-surface-700 hover:bg-surface-600 rounded-xl transition-colors"
-                title="Regenerate API key"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* API Integration */}
-        {merchant && (
-          <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <Code className="w-5 h-5 text-glow-400" />
-              API Integration
-            </h2>
-            <p className="text-gray-400 text-sm mb-4">
-              Create payments from your e-commerce site using the API.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-400 mb-2">Create a payment</p>
-                <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre">{`curl -X POST ${window.location.origin}/api/payments \\
-  -H "Content-Type: application/json" \\
-  -H "X-API-Key: ${merchant.apiKey}" \\
-  -d '{"amountSats": 1000, "description": "Order #123"}'`}</pre>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-400 mb-2">Check payment status</p>
-                <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre">{`curl ${window.location.origin}/api/payments/{paymentId}`}</pre>
-              </div>
-
-              <div>
-                <p className="text-sm text-gray-400 mb-2">Response</p>
-                <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre">{`{
-  "paymentId": "...",
-  "paymentUrl": "https://...",
-  "invoice": "lnbc...",
-  "expiresAt": "...",
-  "amountSats": 1000
-}`}</pre>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Error/Success messages */}
         {error && (

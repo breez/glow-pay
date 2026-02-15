@@ -14,13 +14,21 @@ export function getRedis(): Redis {
 
 // Merchant helpers
 
+export interface ServerApiKey {
+  key: string
+  label: string
+  active: boolean
+}
+
 export interface ServerMerchant {
   id: string
   storeName: string
   lightningAddress: string
   lightningAddresses: string[]
   redirectUrl: string | null
-  apiKey: string
+  apiKey: string // backward compat — first active key
+  apiKeys: ServerApiKey[]
+  rotationEnabled: boolean
   registeredAt: string
 }
 
@@ -28,17 +36,44 @@ export async function getMerchantByApiKey(apiKey: string): Promise<ServerMerchan
   const r = getRedis()
   const merchantId = await r.get<string>(`apikey:${apiKey}`)
   if (!merchantId) return null
-  return r.get<ServerMerchant>(`merchant:${merchantId}`)
+  const merchant = await r.get<ServerMerchant>(`merchant:${merchantId}`)
+  if (!merchant) return null
+  // Verify the key is still active
+  if (merchant.apiKeys?.length > 0) {
+    const key = merchant.apiKeys.find(k => k.key === apiKey)
+    if (key && !key.active) return null
+  }
+  return merchant
 }
 
 export async function getMerchantById(id: string): Promise<ServerMerchant | null> {
   return getRedis().get<ServerMerchant>(`merchant:${id}`)
 }
 
-export async function saveMerchantToKv(merchant: ServerMerchant): Promise<void> {
+export async function saveMerchantToKv(merchant: ServerMerchant, oldApiKeys?: string[]): Promise<void> {
   const r = getRedis()
   await r.set(`merchant:${merchant.id}`, merchant)
-  await r.set(`apikey:${merchant.apiKey}`, merchant.id)
+
+  // Remove old API key mappings
+  if (oldApiKeys) {
+    for (const oldKey of oldApiKeys) {
+      await r.del(`apikey:${oldKey}`)
+    }
+  }
+
+  // Set mappings for all active API keys
+  if (merchant.apiKeys?.length > 0) {
+    for (const k of merchant.apiKeys) {
+      if (k.active) {
+        await r.set(`apikey:${k.key}`, merchant.id)
+      } else {
+        await r.del(`apikey:${k.key}`)
+      }
+    }
+  } else {
+    // Backward compat: single apiKey
+    await r.set(`apikey:${merchant.apiKey}`, merchant.id)
+  }
 }
 
 // Address usage helpers

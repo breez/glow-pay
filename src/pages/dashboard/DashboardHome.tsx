@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { TrendingUp, Clock, ArrowRight, AlertCircle, Wallet } from 'lucide-react'
-import { getMerchant, getPayments } from '@/lib/store'
+import { TrendingUp, ArrowRight, AlertCircle, Wallet } from 'lucide-react'
+import { getMerchant, getPayments, updatePaymentStatus } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
 import { useWallet } from '@/lib/wallet/WalletContext'
 import type { Merchant, Payment } from '@/lib/types'
@@ -14,11 +14,19 @@ export function DashboardHome() {
 
   useEffect(() => {
     setMerchant(getMerchant())
-    setPayments(getPayments())
+    const allPayments = getPayments()
+    // Auto-expire pending payments past their expiresAt
+    for (const p of allPayments) {
+      if (p.status === 'pending' && new Date(p.expiresAt) < new Date()) {
+        updatePaymentStatus(p.id, 'expired')
+        p.status = 'expired'
+      }
+    }
+    setPayments(allPayments)
   }, [])
 
   const completedPayments = payments.filter(p => p.status === 'completed')
-  const recentPayments = payments.slice(0, 5)
+  const recentPayments = payments.filter(p => p.status !== 'pending').slice(0, 5)
 
   // If no merchant is set up, show onboarding
   if (!merchant) {
@@ -106,12 +114,12 @@ export function DashboardHome() {
 
         <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center">
-              <Clock className="w-5 h-5 text-orange-400" />
+            <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-blue-400" />
             </div>
-            <span className="text-gray-400">Pending</span>
+            <span className="text-gray-400">Total</span>
           </div>
-          <p className="text-3xl font-bold">{payments.filter(p => p.status === 'pending').length} <span className="text-lg text-gray-400">payments</span></p>
+          <p className="text-3xl font-bold">{payments.length} <span className="text-lg text-gray-400">payments</span></p>
         </div>
       </div>
 

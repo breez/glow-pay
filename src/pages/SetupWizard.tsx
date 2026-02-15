@@ -18,8 +18,6 @@ export function SetupWizard() {
     checkUsernameAvailable,
     setLightningUsername,
     refreshLightningAddress,
-    registerAllAddresses,
-    allLightningAddresses,
     error: walletError,
     clearError,
   } = useWallet()
@@ -36,10 +34,6 @@ export function SetupWizard() {
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [settingUsername, setSettingUsername] = useState(false)
   
-  // Privacy address registration
-  const [registrationProgress, setRegistrationProgress] = useState(0)
-  const [registeredAddresses, setRegisteredAddresses] = useState<string[]>([])
-
   // Store step
   const [storeName, setStoreName] = useState('')
   const [redirectUrl, setRedirectUrl] = useState('')
@@ -110,20 +104,11 @@ export function SetupWizard() {
     if (!username || !usernameAvailable) return
 
     setSettingUsername(true)
-    setRegistrationProgress(0)
     try {
-      // Register primary address first
       await setLightningUsername(username)
-      setRegistrationProgress(1)
-
-      // Register rotation addresses (accounts 1-4)
-      const addresses = await registerAllAddresses(username)
-      setRegisteredAddresses(addresses)
-      setRegistrationProgress(5)
-
       setStep('store')
     } catch (err) {
-      setUsernameError(err instanceof Error ? err.message : 'Failed to register addresses')
+      setUsernameError(err instanceof Error ? err.message : 'Failed to register address')
     } finally {
       setSettingUsername(false)
     }
@@ -134,32 +119,38 @@ export function SetupWizard() {
 
     setSaving(true)
     try {
-      const addresses = registeredAddresses.length > 0
-        ? registeredAddresses
-        : allLightningAddresses.length > 0
-          ? allLightningAddresses
-          : [lightningAddress.lightningAddress]
+      const initialApiKey = generateApiKey()
+      const now = new Date().toISOString()
 
       const merchant: Merchant = {
         id: generateId(),
         lightningAddress: lightningAddress.lightningAddress,
-        lightningAddresses: addresses,
+        lightningAddresses: [lightningAddress.lightningAddress],
         storeName: storeName || '',
         redirectUrl: redirectUrl || null,
         redirectSecret: generateSecret(),
-        apiKey: generateApiKey(),
-        createdAt: new Date().toISOString(),
+        apiKey: initialApiKey,
+        apiKeys: [{ key: initialApiKey, label: 'Default', createdAt: now, active: true }],
+        rotationEnabled: false,
+        rotationCount: 5,
+        createdAt: now,
       }
       saveMerchant(merchant)
 
       // Sync to server for API access
-      syncMerchantToServer({
-        merchantId: merchant.id,
-        apiKey: merchant.apiKey,
-        storeName: merchant.storeName,
-        lightningAddresses: merchant.lightningAddresses,
-        redirectUrl: merchant.redirectUrl,
-      }).catch(err => console.warn('Failed to sync merchant to server:', err))
+      try {
+        await syncMerchantToServer({
+          merchantId: merchant.id,
+          apiKey: merchant.apiKey,
+          apiKeys: merchant.apiKeys,
+          storeName: merchant.storeName,
+          lightningAddresses: merchant.lightningAddresses,
+          redirectUrl: merchant.redirectUrl,
+          rotationEnabled: merchant.rotationEnabled,
+        })
+      } catch (err) {
+        console.warn('Failed to sync merchant to server:', err)
+      }
 
       setStep('complete')
     } finally {
@@ -454,9 +445,7 @@ export function SetupWizard() {
               {settingUsername ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  {registrationProgress > 0
-                    ? `Setting up privacy addresses... (${registrationProgress}/5)`
-                    : 'Registering...'}
+                  Registering...
                 </>
               ) : (
                 <>
@@ -499,11 +488,6 @@ export function SetupWizard() {
                     <p className="font-mono font-bold text-glow-400">
                       {lightningAddress.lightningAddress}
                     </p>
-                    {registeredAddresses.length > 1 && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        + {registeredAddresses.length - 1} privacy rotation addresses
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
@@ -573,11 +557,6 @@ export function SetupWizard() {
                 <p className="font-mono text-xl font-bold text-glow-400">
                   {lightningAddress.lightningAddress}
                 </p>
-                {registeredAddresses.length > 1 && (
-                  <p className="text-sm text-gray-500 mt-2">
-                    + {registeredAddresses.length - 1} privacy rotation addresses for enhanced security
-                  </p>
-                )}
               </div>
             )}
 

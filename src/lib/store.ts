@@ -24,10 +24,30 @@ export function updateAddressUsage(accountIndex: number): void {
   localStorage.setItem(STORAGE_KEY_ADDRESS_USAGE, JSON.stringify(usage))
 }
 
-// Migrate old merchant records that lack lightningAddresses
+// Migrate old merchant records
 export function migrateMerchant(merchant: Merchant): Merchant {
   if (!merchant.lightningAddresses) {
     merchant.lightningAddresses = [merchant.lightningAddress]
+  }
+  // Migrate single apiKey to apiKeys array
+  if (!merchant.apiKeys) {
+    merchant.apiKeys = [{
+      key: merchant.apiKey,
+      label: 'Default',
+      createdAt: merchant.createdAt,
+      active: true,
+    }]
+  }
+  if (merchant.rotationEnabled === undefined) {
+    merchant.rotationEnabled = false
+  }
+  if (merchant.rotationCount === undefined) {
+    merchant.rotationCount = 5
+  }
+  // Keep apiKey in sync with first active key
+  const firstActive = merchant.apiKeys.find(k => k.active)
+  if (firstActive) {
+    merchant.apiKey = firstActive.key
   }
   return merchant
 }

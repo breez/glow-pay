@@ -3,9 +3,11 @@ const API_BASE = '/api'
 export async function syncMerchantToServer(merchant: {
   merchantId: string
   apiKey: string
+  apiKeys?: Array<{ key: string; label: string; active: boolean }>
   storeName: string
   lightningAddresses: string[]
   redirectUrl: string | null
+  rotationEnabled?: boolean
 }): Promise<{ success: boolean }> {
   const res = await fetch(`${API_BASE}/merchants`, {
     method: 'POST',

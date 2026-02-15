@@ -1,12 +1,23 @@
+// API key with label and revocation support
+export interface ApiKey {
+  key: string
+  label: string
+  createdAt: string
+  active: boolean
+}
+
 // Merchant types
 export interface Merchant {
   id: string
   lightningAddress: string // primary address (account 0), kept for backward compat
-  lightningAddresses: string[] // all addresses, indexed by accountNumber (0=primary, 1-5=rotation)
+  lightningAddresses: string[] // all addresses, indexed by accountNumber (0=primary, rotation=random)
   storeName: string
   redirectUrl: string | null
   redirectSecret: string
-  apiKey: string
+  apiKey: string // backward compat — first active key
+  apiKeys: ApiKey[]
+  rotationEnabled: boolean
+  rotationCount: number // 3-10
   createdAt: string
 }
 

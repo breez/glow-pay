@@ -3,15 +3,23 @@
 
 export function selectRotationAddress(
   addresses: string[],
-  usage: Record<number, number>
+  usage: Record<number, number>,
+  rotationEnabled: boolean = true
 ): { address: string; accountIndex: number } {
-  // Rotation addresses are indices 1-5 (skip primary at index 0)
+  // If only one address or rotation disabled, use primary
+  if (addresses.length <= 1 || !rotationEnabled) {
+    if (addresses.length === 0) throw new Error('No addresses available')
+    return { address: addresses[0], accountIndex: 0 }
+  }
+
+  // Rotation addresses are indices 1+ (skip primary at index 0)
   const rotationAddrs = addresses
     .map((addr, i) => ({ address: addr, accountIndex: i }))
     .filter(a => a.accountIndex !== 0 && a.address)
 
+  // If no rotation addresses exist, fall back to primary
   if (rotationAddrs.length === 0) {
-    throw new Error('No rotation addresses available')
+    return { address: addresses[0], accountIndex: 0 }
   }
 
   // Sort by last used (ascending — least recent first)

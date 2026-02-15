@@ -13,7 +13,15 @@ export function DashboardPayments() {
   const merchant = getMerchant()
 
   const refreshPayments = () => {
-    setPayments(getPayments())
+    const allPayments = getPayments()
+    // Auto-expire pending payments past their expiresAt
+    for (const p of allPayments) {
+      if (p.status === 'pending' && new Date(p.expiresAt) < new Date()) {
+        updatePaymentStatus(p.id, 'expired')
+        p.status = 'expired'
+      }
+    }
+    setPayments(allPayments)
   }
 
   useEffect(() => {
