@@ -96,7 +96,7 @@ export function LandingPage() {
               <h3 className="text-lg font-bold mb-2">Create Your Wallet</h3>
               <p className="text-gray-400">
                 Glow Pay creates a non-custodial wallet for you
-                in seconds. Your keys, your Bitcoin.
+                in seconds. Your keys, your bitcoin.
               </p>
             </div>
             <div className="text-center">

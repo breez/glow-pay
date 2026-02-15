@@ -1,24 +1,40 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { Zap, Copy, Check, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 import { getPayment, getMerchant, updatePaymentStatus } from '@/lib/store'
-import { formatSats, extractPaymentHash, buildVerifyUrl } from '@/lib/lnurl'
-import type { Payment, Merchant } from '@/lib/types'
+import { formatSats } from '@/lib/lnurl'
+import { getPaymentFromApi } from '@/lib/api-client'
 
 type PaymentState = 'loading' | 'waiting' | 'verifying' | 'success' | 'expired' | 'error'
 
+interface PaymentData {
+  id: string
+  amountSats: number
+  description: string | null
+  invoice: string | null
+  status: 'pending' | 'completed' | 'expired'
+  expiresAt: string
+  paidAt: string | null
+  verifyUrl: string | null
+}
+
+interface MerchantData {
+  storeName: string
+  redirectUrl: string | null
+}
+
 export function CheckoutPage() {
   const { paymentId } = useParams<{ merchantId: string; paymentId: string }>()
-  const [payment, setPayment] = useState<Payment | null>(null)
-  const [merchant, setMerchant] = useState<Merchant | null>(null)
+  const [payment, setPayment] = useState<PaymentData | null>(null)
+  const [merchant, setMerchant] = useState<MerchantData | null>(null)
   const [state, setState] = useState<PaymentState>('loading')
   const [copied, setCopied] = useState(false)
   const [timeLeft, setTimeLeft] = useState<number>(0)
   const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<{ url: string; response: string } | null>(null)
+  const isApiPaymentRef = useRef(false)
 
-  // Load payment and merchant data
+  // Load payment data: try API first, then localStorage fallback
   useEffect(() => {
     if (!paymentId) {
       setError('Payment not found')
@@ -26,25 +42,75 @@ export function CheckoutPage() {
       return
     }
 
-    const p = getPayment(paymentId)
-    const m = getMerchant()
+    let cancelled = false
 
-    if (!p || !m) {
-      setError('Payment or merchant not found')
-      setState('error')
-      return
+    const loadPayment = async () => {
+      // Try API first
+      try {
+        const result = await getPaymentFromApi(paymentId)
+        if (!cancelled && result.success && result.data) {
+          isApiPaymentRef.current = true
+          setPayment({
+            id: result.data.id,
+            amountSats: result.data.amountSats,
+            description: result.data.description,
+            invoice: result.data.invoice,
+            status: result.data.status,
+            expiresAt: result.data.expiresAt,
+            paidAt: result.data.paidAt,
+            verifyUrl: result.data.verifyUrl,
+          })
+          setMerchant(result.data.merchant)
+
+          if (result.data.status === 'completed') {
+            setState('success')
+          } else if (result.data.status === 'expired') {
+            setState('expired')
+          } else {
+            setState('waiting')
+          }
+          return
+        }
+      } catch {
+        // API unavailable, try localStorage
+      }
+
+      if (cancelled) return
+
+      // Fallback: localStorage
+      const p = getPayment(paymentId)
+      const m = getMerchant()
+
+      if (!p || !m) {
+        setError('Payment not found')
+        setState('error')
+        return
+      }
+
+      isApiPaymentRef.current = false
+      setPayment({
+        id: p.id,
+        amountSats: p.amountSats,
+        description: p.description,
+        invoice: p.invoice,
+        status: p.status,
+        expiresAt: p.expiresAt,
+        paidAt: p.paidAt,
+        verifyUrl: p.verifyUrl,
+      })
+      setMerchant({ storeName: m.storeName, redirectUrl: m.redirectUrl })
+
+      if (p.status === 'completed') {
+        setState('success')
+      } else if (p.status === 'expired') {
+        setState('expired')
+      } else {
+        setState('waiting')
+      }
     }
 
-    setPayment(p)
-    setMerchant(m)
-
-    if (p.status === 'completed') {
-      setState('success')
-    } else if (p.status === 'expired') {
-      setState('expired')
-    } else {
-      setState('waiting')
-    }
+    loadPayment()
+    return () => { cancelled = true }
   }, [paymentId])
 
   // Countdown timer
@@ -58,7 +124,6 @@ export function CheckoutPage() {
       setTimeLeft(remaining)
 
       if (remaining === 0) {
-        updatePaymentStatus(payment.id, 'expired')
         setState('expired')
       }
     }
@@ -70,69 +135,57 @@ export function CheckoutPage() {
 
   // Poll for payment verification
   const checkPayment = useCallback(async () => {
-    if (!payment || !merchant || state !== 'waiting') return
-    
-    // Get verify URL - use stored one or construct from invoice
-    let verifyUrl = payment.verifyUrl
-    if (!verifyUrl && payment.invoice) {
-      const paymentHash = extractPaymentHash(payment.invoice)
-      if (paymentHash) {
-        // Use the specific address that was used for this payment, fall back to primary
-        const addressForVerify = payment.usedAddress || merchant.lightningAddress
-        verifyUrl = buildVerifyUrl(addressForVerify, paymentHash)
-      }
-    }
-    
-    if (!verifyUrl) {
-      console.warn('No verify URL available for payment:', payment.id)
-      return
-    }
+    if (!payment || state !== 'waiting' || !paymentId) return
 
     try {
-      console.log('Checking payment via LNURL-verify:', verifyUrl)
-      setDebugInfo({ url: verifyUrl, response: 'Fetching...' })
-      
-      const response = await fetch(verifyUrl)
-      const responseText = await response.text()
-      
-      setDebugInfo({ 
-        url: verifyUrl, 
-        response: `Status: ${response.status} ${response.statusText}\n${responseText}` 
-      })
-      
-      if (!response.ok) {
-        console.error('Verify request failed:', response.status, responseText)
-        return
-      }
-      
-      const result = JSON.parse(responseText)
-      console.log('Verify result:', result)
-      
-      if (result.settled) {
-        const paidAt = new Date().toISOString()
-        updatePaymentStatus(payment.id, 'completed', paidAt)
-        setState('success')
+      if (isApiPaymentRef.current) {
+        // Check via API (server does LNURL-verify)
+        const result = await getPaymentFromApi(paymentId)
+        if (result.success && result.data) {
+          if (result.data.status === 'completed') {
+            setPayment(prev => prev ? { ...prev, status: 'completed', paidAt: result.data!.paidAt } : null)
+            setState('success')
 
-        // Redirect after short delay
-        if (merchant.redirectUrl) {
-          setTimeout(() => {
-            const url = new URL(merchant.redirectUrl!)
-            url.searchParams.set('payment_id', payment.id)
-            url.searchParams.set('status', 'paid')
-            url.searchParams.set('amount_sats', payment.amountSats.toString())
-            window.location.href = url.toString()
-          }, 2000)
+            if (merchant?.redirectUrl) {
+              setTimeout(() => {
+                const url = new URL(merchant.redirectUrl!)
+                url.searchParams.set('payment_id', payment.id)
+                url.searchParams.set('status', 'paid')
+                url.searchParams.set('amount_sats', payment.amountSats.toString())
+                window.location.href = url.toString()
+              }, 2000)
+            }
+          } else if (result.data.status === 'expired') {
+            setState('expired')
+          }
+        }
+      } else {
+        // Fallback: direct LNURL-verify for localStorage payments
+        if (!payment.verifyUrl) return
+        const response = await fetch(payment.verifyUrl)
+        if (!response.ok) return
+        const result = await response.json()
+        if (result.settled) {
+          const paidAt = new Date().toISOString()
+          updatePaymentStatus(payment.id, 'completed', paidAt)
+          setPayment(prev => prev ? { ...prev, status: 'completed', paidAt } : null)
+          setState('success')
+
+          if (merchant?.redirectUrl) {
+            setTimeout(() => {
+              const url = new URL(merchant.redirectUrl!)
+              url.searchParams.set('payment_id', payment.id)
+              url.searchParams.set('status', 'paid')
+              url.searchParams.set('amount_sats', payment.amountSats.toString())
+              window.location.href = url.toString()
+            }, 2000)
+          }
         }
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err)
-      console.error('Verify error:', err)
-      setDebugInfo(prev => ({ 
-        url: prev?.url || verifyUrl, 
-        response: `Error: ${errorMsg}` 
-      }))
+      console.warn('Payment check failed:', err)
     }
-  }, [payment, merchant, state])
+  }, [payment, merchant, state, paymentId])
 
   // Poll every 2 seconds while waiting
   useEffect(() => {
@@ -246,16 +299,6 @@ export function CheckoutPage() {
               <Loader2 className="w-4 h-4 animate-spin" />
               <span>Waiting for payment...</span>
             </div>
-
-            {/* Debug info */}
-            {debugInfo && (
-              <div className="mt-4 p-3 bg-surface-900 rounded-lg border border-white/10 text-xs font-mono">
-                <p className="text-gray-400 mb-1">Verify URL:</p>
-                <p className="text-glow-400 break-all mb-2">{debugInfo.url}</p>
-                <p className="text-gray-400 mb-1">Response:</p>
-                <pre className="text-gray-300 whitespace-pre-wrap break-all">{debugInfo.response}</pre>
-              </div>
-            )}
           </>
         )}
 
@@ -266,8 +309,8 @@ export function CheckoutPage() {
             </div>
             <h2 className="text-2xl font-bold text-green-400 mb-2">Payment Received!</h2>
             <p className="text-gray-400">
-              {merchant?.redirectUrl 
-                ? 'Redirecting you back...' 
+              {merchant?.redirectUrl
+                ? 'Redirecting you back...'
                 : 'Thank you for your payment'}
             </p>
           </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Zap, Copy, Check, ArrowRight, ArrowLeft, Shield, Key, User, Loader2, AlertCircle } from 'lucide-react'
 import { useWallet } from '@/lib/wallet/WalletContext'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
+import { syncMerchantToServer } from '@/lib/api-client'
 import type { Merchant } from '@/lib/types'
 
 type Step = 'welcome' | 'generate' | 'username' | 'store' | 'complete'
@@ -151,6 +152,16 @@ export function SetupWizard() {
         createdAt: new Date().toISOString(),
       }
       saveMerchant(merchant)
+
+      // Sync to server for API access
+      syncMerchantToServer({
+        merchantId: merchant.id,
+        apiKey: merchant.apiKey,
+        storeName: merchant.storeName,
+        lightningAddresses: merchant.lightningAddresses,
+        redirectUrl: merchant.redirectUrl,
+      }).catch(err => console.warn('Failed to sync merchant to server:', err))
+
       setStep('complete')
     } finally {
       setSaving(false)

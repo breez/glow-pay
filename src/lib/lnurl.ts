@@ -36,12 +36,12 @@ export async function fetchLnurlPayInfo(lightningAddress: string): Promise<Lnurl
 
   const url = `https://${domain}/.well-known/lnurlp/${username}`
   const response = await fetch(url)
-  
+
   if (!response.ok) {
     throw new Error(`Failed to fetch LNURL-pay info: ${response.status}`)
   }
 
-  return response.json()
+  return await response.json() as LnurlPayResponse
 }
 
 /**
@@ -64,13 +64,13 @@ export async function requestInvoice(
     throw new Error(`Failed to request invoice: ${response.status}`)
   }
 
-  const data = await response.json()
-  
+  const data = await response.json() as LnurlInvoiceResponse & { status?: string; reason?: string }
+
   if (data.status === 'ERROR') {
     throw new Error(data.reason || 'Failed to create invoice')
   }
 
-  return data
+  return data as LnurlInvoiceResponse
 }
 
 /**
@@ -78,12 +78,12 @@ export async function requestInvoice(
  */
 export async function verifyPayment(verifyUrl: string): Promise<LnurlVerifyResponse> {
   const response = await fetch(verifyUrl)
-  
+
   if (!response.ok) {
     throw new Error(`Failed to verify payment: ${response.status}`)
   }
 
-  return response.json()
+  return await response.json() as LnurlVerifyResponse
 }
 
 /**

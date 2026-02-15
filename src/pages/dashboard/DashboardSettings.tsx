@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Save, Copy, Check, RefreshCw, Zap, Shield } from 'lucide-react'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
+import { syncMerchantToServer } from '@/lib/api-client'
 import { fetchLnurlPayInfo } from '@/lib/lnurl'
 import { useWallet } from '@/lib/wallet/WalletContext'
 import type { Merchant } from '@/lib/types'
@@ -74,6 +75,16 @@ export function DashboardSettings() {
 
     saveMerchant(updatedMerchant)
     setMerchant(updatedMerchant)
+
+    // Sync to server for API access
+    syncMerchantToServer({
+      merchantId: updatedMerchant.id,
+      apiKey: updatedMerchant.apiKey,
+      storeName: updatedMerchant.storeName,
+      lightningAddresses: updatedMerchant.lightningAddresses,
+      redirectUrl: updatedMerchant.redirectUrl,
+    }).catch(err => console.warn('Failed to sync merchant to server:', err))
+
     setSaving(false)
     setSuccess(true)
     setTimeout(() => setSuccess(false), 3000)

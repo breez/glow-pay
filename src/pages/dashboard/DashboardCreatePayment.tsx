@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Zap, ArrowLeft, ExternalLink, Copy, Check } from 'lucide-react'
-import { getMerchant, savePayment, generateId } from '@/lib/store'
-import { fetchLnurlPayInfo, requestInvoice, satsToMsats, formatSats, extractPaymentHash, buildVerifyUrl } from '@/lib/lnurl'
-import { useWallet } from '@/lib/wallet/WalletContext'
+import { getMerchant, savePayment } from '@/lib/store'
+import { formatSats } from '@/lib/lnurl'
+import { createPaymentViaApi } from '@/lib/api-client'
 import type { Payment } from '@/lib/types'
 
 export function DashboardCreatePayment() {
   const navigate = useNavigate()
-  const { selectPaymentAddress } = useWallet()
   const [amountSats, setAmountSats] = useState('')
   const [description, setDescription] = useState('')
   const [creating, setCreating] = useState(false)
@@ -35,53 +34,33 @@ export function DashboardCreatePayment() {
     setError(null)
 
     try {
-      // Select a rotation address for this payment
-      const selected = selectPaymentAddress()
-      console.log('Creating payment for rotation address:', selected.address, '(account', selected.accountIndex, ')')
+      const result = await createPaymentViaApi(
+        merchant.apiKey,
+        sats,
+        description || undefined,
+      )
 
-      // Fetch LNURL-pay info
-      const lnurlInfo = await fetchLnurlPayInfo(selected.address)
-      console.log('LNURL-pay info:', lnurlInfo)
-
-      // Check amount limits
-      const msats = satsToMsats(sats)
-      if (msats < lnurlInfo.minSendable || msats > lnurlInfo.maxSendable) {
-        setError(`Amount must be between ${Math.ceil(lnurlInfo.minSendable / 1000)} and ${Math.floor(lnurlInfo.maxSendable / 1000)} sats`)
-        setCreating(false)
+      if (!result.success || !result.data) {
+        setError(result.error || 'Failed to create payment')
         return
       }
 
-      // Request invoice
-      const invoiceResponse = await requestInvoice(lnurlInfo.callback, msats, description || undefined)
-      console.log('Invoice response:', invoiceResponse)
-      setInvoiceResponseDebug(JSON.stringify(invoiceResponse, null, 2))
+      setInvoiceResponseDebug(JSON.stringify(result.data, null, 2))
 
-      // Get verify URL - use from response or construct from payment hash
-      let verifyUrl = invoiceResponse.verify || null
-      if (!verifyUrl) {
-        const paymentHash = extractPaymentHash(invoiceResponse.pr)
-        if (paymentHash) {
-          verifyUrl = buildVerifyUrl(selected.address, paymentHash)
-          console.log('Constructed verify URL:', verifyUrl)
-        }
-      }
-
-      // Create payment record
+      // Save locally for payment history
       const payment: Payment = {
-        id: generateId(),
+        id: result.data.paymentId,
         merchantId: merchant.id,
-        amountMsats: msats,
+        amountMsats: sats * 1000,
         amountSats: sats,
         description: description || null,
-        invoice: invoiceResponse.pr,
-        verifyUrl,
+        invoice: result.data.invoice,
+        verifyUrl: result.data.verifyUrl,
         status: 'pending',
         metadata: null,
         createdAt: new Date().toISOString(),
         paidAt: null,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 min expiry
-        accountIndex: selected.accountIndex,
-        usedAddress: selected.address,
+        expiresAt: result.data.expiresAt,
       }
 
       savePayment(payment)
