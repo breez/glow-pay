@@ -89,8 +89,8 @@ export function DashboardIntegration() {
   if (!merchant) {
     return (
       <div className="max-w-3xl">
-        <h1 className="text-3xl font-bold mb-2">Integration</h1>
-        <p className="text-gray-400">Complete setup to access API integration.</p>
+        <h1 className="text-2xl font-bold tracking-tight mb-1">API & Integration</h1>
+        <p className="text-sm text-gray-400">Complete setup to access API integration.</p>
       </div>
     )
   }
@@ -101,14 +101,14 @@ export function DashboardIntegration() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-3xl font-bold mb-2">Integration</h1>
-      <p className="text-gray-400 mb-8">API keys and integration guides for your e-commerce site</p>
+      <h1 className="text-2xl font-bold tracking-tight mb-1">API & Integration</h1>
+      <p className="text-sm text-gray-400 mb-8">Manage API keys and integrate Glow Pay with your application.</p>
 
       <div className="space-y-6">
         {/* API Keys */}
-        <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
+        <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold flex items-center gap-2">
+            <h2 className="text-base font-semibold flex items-center gap-2">
               <Key className="w-5 h-5 text-glow-400" />
               API Keys
             </h2>
@@ -126,14 +126,14 @@ export function DashboardIntegration() {
 
           {/* Create key form */}
           {showCreateKey && (
-            <div className="mb-4 p-4 bg-surface-900 rounded-xl border border-white/10">
+            <div className="mb-4 p-4 bg-surface-900 rounded-xl border border-white/[0.06]">
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={newKeyLabel}
                   onChange={(e) => setNewKeyLabel(e.target.value)}
                   placeholder="Key label (e.g., Production, Staging)"
-                  className="flex-1 px-3 py-2 bg-surface-700 border border-white/10 rounded-lg text-sm focus:outline-none focus:border-glow-400 transition-colors"
+                  className="flex-1 px-3 py-2 bg-surface-700 border border-white/[0.06] rounded-lg text-sm focus:outline-none focus:border-glow-400 transition-colors"
                   onKeyDown={(e) => e.key === 'Enter' && createApiKey()}
                   autoFocus
                 />
@@ -157,18 +157,18 @@ export function DashboardIntegration() {
           {/* Active keys */}
           <div className="space-y-3">
             {activeKeys.map((apiKey) => (
-              <div key={apiKey.key} className="flex items-center gap-3 p-3 bg-surface-900 rounded-xl">
+              <div key={apiKey.key} className="flex items-center gap-3 p-3 bg-surface-900 rounded-xl hover:bg-surface-800/80 transition-colors">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-sm font-medium">{apiKey.label}</span>
-                    <span className="text-xs px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">Active</span>
+                    <span className="status-badge bg-green-500/20 text-green-400">Active</span>
                   </div>
                   <code className="text-xs text-gray-400 font-mono block truncate">{apiKey.key}</code>
                   <span className="text-xs text-gray-600">Created {new Date(apiKey.createdAt).toLocaleDateString()}</span>
                 </div>
                 <button
                   onClick={() => copyToClipboard(apiKey.key, apiKey.key)}
-                  className="p-2 bg-surface-700 hover:bg-surface-600 rounded-lg transition-colors shrink-0"
+                  className="p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors shrink-0"
                   title="Copy key"
                 >
                   {copiedKey === apiKey.key ? (
@@ -199,7 +199,7 @@ export function DashboardIntegration() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-500">{apiKey.label}</span>
-                        <span className="text-xs px-1.5 py-0.5 bg-red-500/20 text-red-400 rounded">Revoked</span>
+                        <span className="status-badge bg-red-500/20 text-red-400">Revoked</span>
                       </div>
                       <code className="text-xs text-gray-600 font-mono block truncate">{apiKey.key}</code>
                     </div>
@@ -211,22 +211,22 @@ export function DashboardIntegration() {
         </div>
 
         {/* API Documentation */}
-        <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
-          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+        <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
+          <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
             <Code className="w-5 h-5 text-glow-400" />
             API Reference
           </h2>
           <p className="text-gray-400 text-sm mb-6">
-            Create and manage payments from your e-commerce site using the REST API.
+            Use the REST API to create and verify payments programmatically.
           </p>
 
           <div className="space-y-6">
             {/* Create Payment */}
             <div>
-              <h3 className="text-sm font-bold text-glow-400 mb-1">POST /api/payments</h3>
-              <p className="text-xs text-gray-400 mb-3">Create a new payment request. Returns a payment URL and Lightning invoice.</p>
+              <h3 className="text-sm font-bold font-mono text-glow-400 mb-1">POST /api/payments</h3>
+              <p className="text-xs text-gray-400 mb-3">Creates a payment request and returns a payment URL and invoice.</p>
               <div className="relative">
-                <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre">{`curl -X POST ${window.location.origin}/api/payments \\
+                <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`curl -X POST ${window.location.origin}/api/payments \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${displayKey}" \\
   -d '{"amountSats": 1000, "description": "Order #123"}'`}</pre>
@@ -235,7 +235,7 @@ export function DashboardIntegration() {
                     `curl -X POST ${window.location.origin}/api/payments \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: ${displayKey}" \\\n  -d '{"amountSats": 1000, "description": "Order #123"}'`,
                     'curl-create'
                   )}
-                  className="absolute top-2 right-2 p-1.5 bg-surface-700 hover:bg-surface-600 rounded-lg transition-colors"
+                  className="absolute top-2 right-2 p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors"
                 >
                   {copiedKey === 'curl-create' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
@@ -245,7 +245,7 @@ export function DashboardIntegration() {
             {/* Response */}
             <div>
               <h3 className="text-sm font-bold text-gray-300 mb-1">Response</h3>
-              <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre">{`{
+              <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`{
   "success": true,
   "data": {
     "paymentId": "m2abc_xyz123",
@@ -259,16 +259,16 @@ export function DashboardIntegration() {
 
             {/* Check status */}
             <div>
-              <h3 className="text-sm font-bold text-glow-400 mb-1">GET /api/payments/:id</h3>
-              <p className="text-xs text-gray-400 mb-3">Check payment status. No authentication required.</p>
-              <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre">{`curl ${window.location.origin}/api/payments/{paymentId}`}</pre>
+              <h3 className="text-sm font-bold font-mono text-glow-400 mb-1">GET /api/payments/:id</h3>
+              <p className="text-xs text-gray-400 mb-3">Returns the current status of a payment. No authentication required.</p>
+              <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`curl ${window.location.origin}/api/payments/{paymentId}`}</pre>
             </div>
 
             {/* JS Example */}
             <div>
-              <h3 className="text-sm font-bold text-gray-300 mb-1">JavaScript Example</h3>
+              <h3 className="text-sm font-bold text-gray-300 mb-1">Example: JavaScript / Node.js</h3>
               <div className="relative">
-                <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre">{`const response = await fetch('${window.location.origin}/api/payments', {
+                <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`const response = await fetch('${window.location.origin}/api/payments', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -288,7 +288,7 @@ window.location.href = data.paymentUrl;`}</pre>
                     `const response = await fetch('${window.location.origin}/api/payments', {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n    'X-API-Key': '${displayKey}',\n  },\n  body: JSON.stringify({\n    amountSats: 1000,\n    description: 'Order #123',\n  }),\n});\n\nconst { data } = await response.json();\n// Redirect customer to payment page\nwindow.location.href = data.paymentUrl;`,
                     'js-example'
                   )}
-                  className="absolute top-2 right-2 p-1.5 bg-surface-700 hover:bg-surface-600 rounded-lg transition-colors"
+                  className="absolute top-2 right-2 p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors"
                 >
                   {copiedKey === 'js-example' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>

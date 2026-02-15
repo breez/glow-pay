@@ -221,10 +221,12 @@ export function CheckoutPage() {
   if (state === 'error') {
     return (
       <div className="min-h-screen gradient-bg flex items-center justify-center p-6">
-        <div className="bg-surface-800 border border-red-500/30 rounded-2xl p-8 text-center max-w-md">
+        <div className="bg-surface-800 border border-red-500/30 rounded-2xl p-8 text-center max-w-md shadow-2xl shadow-black/40">
           <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Error</h1>
-          <p className="text-gray-400">{error || 'Something went wrong'}</p>
+          <h1 className="text-2xl font-bold mb-2">Payment Not Found</h1>
+          <p className="text-gray-400">
+            We could not locate this payment. The link may be invalid or the payment may have expired.
+          </p>
         </div>
       </div>
     )
@@ -232,27 +234,27 @@ export function CheckoutPage() {
 
   return (
     <div className="min-h-screen gradient-bg flex items-center justify-center p-6">
-      <div className="bg-surface-800 border border-white/10 rounded-3xl p-8 max-w-md w-full">
+      <div className="bg-surface-800 border border-white/[0.06] rounded-3xl p-8 max-w-md w-full shadow-2xl shadow-black/40">
         {/* Header */}
         <div className="text-center mb-6">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-glow-400 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-surface-900" />
+            <div className="w-10 h-10 rounded-lg bg-glow-400 flex items-center justify-center shadow-lg shadow-glow-400/20">
+              <Zap className="w-6 h-6 text-surface-900" />
             </div>
             <span className="text-lg font-bold">Glow Pay</span>
           </div>
           {merchant?.storeName && (
-            <p className="text-gray-400">Pay to {merchant.storeName}</p>
+            <p className="text-gray-400">{merchant.storeName}</p>
           )}
         </div>
 
         {/* Amount */}
         <div className="text-center mb-6">
-          <p className="text-4xl font-bold text-glow-400 glow-text">
+          <p className="text-4xl font-bold tracking-tight text-glow-400 glow-text tabular-nums">
             {formatSats(payment?.amountSats || 0)} sats
           </p>
           {payment?.description && (
-            <p className="text-gray-400 mt-2">{payment.description}</p>
+            <p className="text-sm text-gray-400 mt-2">{payment.description}</p>
           )}
         </div>
 
@@ -260,10 +262,10 @@ export function CheckoutPage() {
         {state === 'waiting' && payment?.invoice && (
           <>
             {/* QR Code */}
-            <div className="qr-container mx-auto w-fit mb-6 glow-bitcoin">
+            <div className="qr-container mx-auto w-fit mb-6 glow-bitcoin ring-1 ring-white/10">
               <QRCodeSVG
                 value={payment.invoice.toUpperCase()}
-                size={220}
+                size={240}
                 level="M"
                 bgColor="white"
                 fgColor="#0a0a0f"
@@ -271,15 +273,15 @@ export function CheckoutPage() {
             </div>
 
             {/* Timer */}
-            <div className="flex items-center justify-center gap-2 text-gray-400 mb-4">
+            <div className={`flex items-center justify-center gap-2 mb-4 ${timeLeft < 60 ? 'text-orange-400' : 'text-gray-400'}`}>
               <Clock className="w-4 h-4" />
-              <span>Expires in {formatTime(timeLeft)}</span>
+              <span>This invoice expires in {formatTime(timeLeft)}</span>
             </div>
 
             {/* Copy button */}
             <button
               onClick={copyInvoice}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-surface-700 hover:bg-surface-600 rounded-xl transition-colors mb-4"
+              className="w-full flex items-center justify-center gap-2 py-3 bg-surface-700 hover:bg-surface-600 border border-white/[0.06] rounded-xl transition-colors mb-4"
             >
               {copied ? (
                 <>
@@ -289,7 +291,7 @@ export function CheckoutPage() {
               ) : (
                 <>
                   <Copy className="w-4 h-4" />
-                  <span>Copy Invoice</span>
+                  <span>Copy Payment Code</span>
                 </>
               )}
             </button>
@@ -297,21 +299,21 @@ export function CheckoutPage() {
             {/* Waiting indicator */}
             <div className="flex items-center justify-center gap-2 text-gray-500">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Waiting for payment...</span>
+              <span>Listening for payment...</span>
             </div>
           </>
         )}
 
         {state === 'success' && (
           <div className="text-center">
-            <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+            <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4 animate-bounce-in">
               <CheckCircle2 className="w-10 h-10 text-green-500" />
             </div>
-            <h2 className="text-2xl font-bold text-green-400 mb-2">Payment Received!</h2>
+            <h2 className="text-2xl font-bold text-green-400 mb-2">Payment Confirmed</h2>
             <p className="text-gray-400">
               {merchant?.redirectUrl
-                ? 'Redirecting you back...'
-                : 'Thank you for your payment'}
+                ? 'Returning you to the merchant...'
+                : 'Your payment has been received successfully.'}
             </p>
           </div>
         )}
@@ -321,17 +323,17 @@ export function CheckoutPage() {
             <div className="w-20 h-20 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
               <Clock className="w-10 h-10 text-orange-500" />
             </div>
-            <h2 className="text-2xl font-bold text-orange-400 mb-2">Invoice Expired</h2>
+            <h2 className="text-2xl font-bold text-orange-400 mb-2">This Payment Has Expired</h2>
             <p className="text-gray-400">
-              This payment request has expired. Please request a new invoice.
+              The time limit for this payment has passed. Please contact the merchant for a new payment link.
             </p>
           </div>
         )}
 
         {/* Footer */}
-        <div className="mt-8 pt-6 border-t border-white/10 text-center">
+        <div className="mt-8 pt-6 border-t border-white/[0.06] text-center">
           <p className="text-xs text-gray-500">
-            Powered by Lightning Network • Non-custodial
+            Secured by the Lightning Network
           </p>
         </div>
       </div>

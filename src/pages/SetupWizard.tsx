@@ -109,13 +109,13 @@ export function SetupWizard() {
   return (
     <div className="min-h-screen gradient-bg">
       {/* Header */}
-      <header className="border-b border-white/10">
+      <header className="border-b border-white/[0.06]">
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-glow-400 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-glow-400 flex items-center justify-center shadow-lg shadow-glow-400/20">
             <Zap className="w-5 h-5 text-surface-900" />
           </div>
           <span className="text-xl font-bold">Glow Pay</span>
-          <span className="text-gray-500">•</span>
+          <span className="text-gray-500">·</span>
           <span className="text-gray-400">Setup</span>
         </div>
       </header>
@@ -126,10 +126,10 @@ export function SetupWizard() {
           {['welcome', 'generate', 'complete'].map((s, i) => (
             <div
               key={s}
-              className={`w-2 h-2 rounded-full transition-colors ${
+              className={`h-2 rounded-full transition-all duration-300 ${
                 s === step ? 'bg-glow-400 w-8' :
                 ['welcome', 'generate', 'complete'].indexOf(step) > i
-                  ? 'bg-glow-400/50' : 'bg-white/20'
+                  ? 'bg-glow-400/50 w-2' : 'bg-white/20 w-2'
               }`}
             />
           ))}
@@ -156,7 +156,7 @@ export function SetupWizard() {
             </div>
             <h1 className="text-4xl font-bold mb-4">Welcome to Glow Pay</h1>
             <p className="text-xl text-gray-400 mb-8 max-w-md mx-auto">
-              Set up your non-custodial Lightning wallet and start accepting Bitcoin payments.
+              You're a few steps away from accepting Bitcoin payments. This takes about two minutes.
             </p>
 
             <div className="grid gap-4 max-w-sm mx-auto mb-8">
@@ -175,14 +175,14 @@ export function SetupWizard() {
                 </div>
                 <div>
                   <h3 className="font-semibold">Start Accepting Payments</h3>
-                  <p className="text-sm text-gray-400">Non-custodial, instant settlements</p>
+                  <p className="text-sm text-gray-400">Funds go directly to your wallet</p>
                 </div>
               </div>
             </div>
 
             <button
               onClick={() => setStep('generate')}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-glow-400 hover:bg-glow-300 text-surface-900 font-bold rounded-xl text-lg transition-all hover:scale-105 glow-box"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] text-surface-900 font-bold rounded-xl text-lg transition-all glow-box"
             >
               Get Started
               <ArrowRight className="w-5 h-5" />
@@ -207,19 +207,19 @@ export function SetupWizard() {
               </div>
               <h1 className="text-3xl font-bold mb-2">Your Recovery Phrase</h1>
               <p className="text-gray-400">
-                Write down these 12 words in order. This is your only backup to recover your wallet.
+                Write down these 12 words in order and store them securely. This phrase is the only way to recover your account.
               </p>
             </div>
 
             {/* Mnemonic grid */}
-            <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6 mb-6">
+            <div className="bg-surface-800/50 border border-white/[0.06] rounded-2xl p-6 mb-6">
               <div className="grid grid-cols-3 gap-3">
                 {words.map((word, index) => (
                   <div
                     key={index}
                     className="flex items-center gap-2 bg-surface-700 rounded-lg px-3 py-2"
                   >
-                    <span className="text-gray-500 text-sm font-mono w-5 text-right">
+                    <span className="text-gray-500 text-sm font-mono tabular-nums w-5 text-right">
                       {index + 1}.
                     </span>
                     <span className="font-mono font-medium">{word}</span>
@@ -259,9 +259,9 @@ export function SetupWizard() {
                   <Shield className="w-5 h-5 text-amber-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-amber-400 mb-1">Keep it Secret</h3>
+                  <h3 className="font-bold text-amber-400 mb-1">Important</h3>
                   <p className="text-gray-400 text-sm">
-                    Never share your recovery phrase. Anyone with these words can access your funds.
+                    Never share your recovery phrase. Anyone with these words can access your funds. Glow Pay cannot recover it for you.
                   </p>
                 </div>
               </div>
@@ -276,7 +276,7 @@ export function SetupWizard() {
                 className="mt-1 w-5 h-5 rounded border-white/20 bg-surface-700 accent-glow-400 focus:ring-glow-400 focus:ring-offset-0"
               />
               <span className="text-gray-300">
-                I have securely saved my recovery phrase and understand that losing it means losing access to my funds.
+                I have saved my recovery phrase in a secure location and understand it cannot be recovered if lost.
               </span>
             </label>
 
@@ -293,7 +293,7 @@ export function SetupWizard() {
             <button
               onClick={handleCreateWallet}
               disabled={!confirmed || isConnecting}
-              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-glow-400 hover:bg-glow-300 disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-all"
             >
               {isConnecting ? (
                 <>
@@ -313,19 +313,19 @@ export function SetupWizard() {
         {/* Step: Complete */}
         {step === 'complete' && (
           <div className="text-center">
-            <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-6">
-              <Check className="w-10 h-10 text-green-400" />
+            <div className="w-20 h-20 rounded-full bg-glow-400/20 flex items-center justify-center mx-auto mb-6 animate-bounce-in">
+              <Check className="w-10 h-10 text-glow-400" />
             </div>
-            <h1 className="text-4xl font-bold mb-4">You're All Set!</h1>
+            <h1 className="text-4xl font-bold mb-4">Setup Complete</h1>
             <p className="text-xl text-gray-400 mb-8 max-w-md mx-auto">
-              Your wallet is ready. Start accepting Bitcoin payments instantly.
+              Your account is ready. You can now create payment links and start receiving funds.
             </p>
 
             <button
               onClick={() => navigate('/dashboard')}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-glow-400 hover:bg-glow-300 text-surface-900 font-bold rounded-xl text-lg transition-all hover:scale-105 glow-box"
+              className="inline-flex items-center gap-2 px-8 py-4 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] text-surface-900 font-bold rounded-xl text-lg transition-all glow-box"
             >
-              Go to Dashboard
+              Open Dashboard
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
