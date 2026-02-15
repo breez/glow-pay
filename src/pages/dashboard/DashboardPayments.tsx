@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, ExternalLink, Copy, Check, CheckCircle, RefreshCw, Loader2 } from 'lucide-react'
 import { getPayments, getMerchant, updatePaymentStatus } from '@/lib/store'
-import { formatSats, verifyPayment } from '@/lib/lnurl'
+import { formatSats } from '@/lib/lnurl'
+import { getPaymentFromApi } from '@/lib/api-client'
 import type { Payment } from '@/lib/types'
 
 export function DashboardPayments() {
@@ -19,22 +20,23 @@ export function DashboardPayments() {
     refreshPayments()
   }, [])
 
-  // Check payment status via LNURL-verify
+  // Check payment status via API (server does LNURL-verify)
   const handleCheckPayment = async (payment: Payment) => {
-    if (!payment.verifyUrl) {
-      alert('No verify URL available for this payment. Use manual verification instead.')
-      return
-    }
-    
     setVerifyingId(payment.id)
     try {
-      const result = await verifyPayment(payment.verifyUrl)
-      console.log('Verify result:', result)
-      if (result.settled) {
-        updatePaymentStatus(payment.id, 'completed', new Date().toISOString())
-        alert('Payment confirmed as settled!')
+      const result = await getPaymentFromApi(payment.id)
+      if (result.success && result.data) {
+        if (result.data.status === 'completed') {
+          updatePaymentStatus(payment.id, 'completed', result.data.paidAt || new Date().toISOString())
+          alert('Payment confirmed as settled!')
+        } else if (result.data.status === 'expired') {
+          updatePaymentStatus(payment.id, 'expired')
+          alert('Payment has expired.')
+        } else {
+          alert('Payment not yet settled.')
+        }
       } else {
-        alert('Payment not yet settled.')
+        alert(result.error || 'Failed to check payment status.')
       }
       refreshPayments()
     } catch (err) {
@@ -89,7 +91,7 @@ export function DashboardPayments() {
         <div className="mb-6 flex items-center gap-6 text-sm text-gray-400">
           <div className="flex items-center gap-2">
             <RefreshCw className="w-4 h-4 text-glow-400" />
-            <span>Check via LNURL-verify</span>
+            <span>Check payment status</span>
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-green-400" />

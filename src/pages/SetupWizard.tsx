@@ -46,13 +46,13 @@ export function SetupWizard() {
   const [redirectUrl, setRedirectUrl] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Check if already set up
+  // Redirect to dashboard if already set up
   useEffect(() => {
     const merchant = getMerchant()
-    if (merchant && isConnected && lightningAddress) {
+    if (merchant) {
       navigate('/dashboard')
     }
-  }, [isConnected, lightningAddress, navigate])
+  }, [navigate])
 
   // Generate mnemonic when entering generate step
   useEffect(() => {

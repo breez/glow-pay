@@ -188,7 +188,7 @@ export function DashboardCreatePayment() {
           {/* Debug: Invoice Response */}
           {invoiceResponseDebug && (
             <div className="mt-6 p-4 bg-surface-900 rounded-xl border border-white/10">
-              <p className="text-sm text-gray-400 mb-2">LNURL-pay Callback Response:</p>
+              <p className="text-sm text-gray-400 mb-2">API Response:</p>
               <pre className="text-xs font-mono text-gray-300 whitespace-pre-wrap break-all overflow-auto max-h-64">
                 {invoiceResponseDebug}
               </pre>

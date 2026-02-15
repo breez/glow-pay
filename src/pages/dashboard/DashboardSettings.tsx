@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, Copy, Check, RefreshCw, Zap, Shield } from 'lucide-react'
+import { Save, Copy, Check, RefreshCw, Zap, Shield, Code } from 'lucide-react'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
 import { fetchLnurlPayInfo } from '@/lib/lnurl'
@@ -231,6 +231,45 @@ export function DashboardSettings() {
               >
                 <RefreshCw className="w-5 h-5" />
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* API Integration */}
+        {merchant && (
+          <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Code className="w-5 h-5 text-glow-400" />
+              API Integration
+            </h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Create payments from your e-commerce site using the API.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-400 mb-2">Create a payment</p>
+                <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre">{`curl -X POST ${window.location.origin}/api/payments \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: ${merchant.apiKey}" \\
+  -d '{"amountSats": 1000, "description": "Order #123"}'`}</pre>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-400 mb-2">Check payment status</p>
+                <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre">{`curl ${window.location.origin}/api/payments/{paymentId}`}</pre>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-400 mb-2">Response</p>
+                <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 overflow-x-auto whitespace-pre">{`{
+  "paymentId": "...",
+  "paymentUrl": "https://...",
+  "invoice": "lnbc...",
+  "expiresAt": "...",
+  "amountSats": 1000
+}`}</pre>
+              </div>
             </div>
           </div>
         )}

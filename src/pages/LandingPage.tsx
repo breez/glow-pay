@@ -1,7 +1,19 @@
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Zap, Shield, Globe, ArrowRight } from 'lucide-react'
+import { getMerchant } from '@/lib/store'
 
 export function LandingPage() {
+  const navigate = useNavigate()
+
+  // Redirect to dashboard if already set up
+  useEffect(() => {
+    const merchant = getMerchant()
+    if (merchant) {
+      navigate('/dashboard')
+    }
+  }, [navigate])
+
   return (
     <div className="min-h-screen gradient-bg">
       {/* Header */}
@@ -59,7 +71,7 @@ export function LandingPage() {
             </div>
             <h3 className="text-xl font-bold mb-2">Non-Custodial</h3>
             <p className="text-gray-400">
-              Funds go directly to your wallet. We never hold your Bitcoin.
+              Funds go directly to your wallet. We never hold your bitcoin.
               You control your keys.
             </p>
           </div>
@@ -103,10 +115,10 @@ export function LandingPage() {
               <div className="w-16 h-16 rounded-full bg-glow-400 text-surface-900 text-2xl font-bold flex items-center justify-center mx-auto mb-4">
                 2
               </div>
-              <h3 className="text-lg font-bold mb-2">Create a Payment</h3>
+              <h3 className="text-lg font-bold mb-2">Integrate with Your Site</h3>
               <p className="text-gray-400">
-                Set an amount, add a description, and get a shareable
-                payment link instantly.
+                Use the API to create payment links from your
+                e-commerce site, or create them from the dashboard.
               </p>
             </div>
             <div className="text-center">
