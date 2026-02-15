@@ -18,7 +18,7 @@ class WebLogger {
   }
 }
 
-export const MAX_POOL_SIZE = 11 // 1 primary + up to 10 rotation
+export const MAX_POOL_SIZE = 10 // 10 random addresses
 
 export interface WalletInstance {
   sdk: breezSdk.BreezSdk
@@ -72,7 +72,7 @@ const connectOneWallet = async (i: number, network: breezSdk.Network, mnemonic: 
 let savedMnemonicRef: string | null = null
 let savedNetworkRef: breezSdk.Network = 'mainnet'
 
-export const initWalletPool = async (mnemonic: string, network: breezSdk.Network = 'mainnet', poolSize: number = 1): Promise<void> => {
+export const initWalletPool = async (mnemonic: string, network: breezSdk.Network = 'mainnet', poolSize: number = 10): Promise<void> => {
   if (walletPool.length > 0) return
 
   if (!isWasmInitialized()) {
@@ -168,27 +168,28 @@ export const registerRandomAddressForAccount = async (
 }
 
 // Address rotation: weighted-random favoring least-recently-used
-// Only uses first `rotationCount` rotation addresses (accounts 1..rotationCount)
-// Primary (account 0) is never included in rotation
+// Uses first `rotationCount` addresses (accounts 0..rotationCount-1)
 export const selectAddress = (rotationCount?: number): { address: string; accountIndex: number } => {
-  let rotationAddresses = walletPool
-    .filter(w => w.lightningAddress !== null && w.accountNumber !== 0)
+  let candidates = walletPool
+    .filter(w => w.lightningAddress !== null)
     .map(w => ({ address: w.lightningAddress!, accountIndex: w.accountNumber }))
 
-  // If rotationCount is set, only use the first N rotation addresses
+  // Limit to first N addresses if rotationCount is set
   if (rotationCount !== undefined && rotationCount > 0) {
-    rotationAddresses = rotationAddresses
-      .filter(a => a.accountIndex >= 1 && a.accountIndex <= rotationCount)
+    candidates = candidates.filter(a => a.accountIndex < rotationCount)
   }
 
-  // If no rotation addresses, use primary
-  if (rotationAddresses.length === 0) {
-    const primary = walletPool.find(w => w.accountNumber === 0 && w.lightningAddress !== null)
-    if (!primary) throw new Error('No Lightning addresses registered')
-    return { address: primary.lightningAddress!, accountIndex: 0 }
+  if (candidates.length === 0) {
+    throw new Error('No Lightning addresses registered')
   }
 
-  const addressesWithIndex = rotationAddresses
+  // If only one address, return it directly
+  if (candidates.length === 1) {
+    updateAddressUsage(candidates[0].accountIndex)
+    return candidates[0]
+  }
+
+  const addressesWithIndex = candidates
 
   const usage = getAddressUsage()
 

@@ -1,35 +1,34 @@
 // Server-side address rotation — mirrors walletService.selectAddress logic
-// Weighted-random favoring least-recently-used, excludes primary (index 0)
+// Weighted-random favoring least-recently-used
 
 export function selectRotationAddress(
   addresses: string[],
   usage: Record<number, number>,
-  rotationEnabled: boolean = true,
+  _rotationEnabled: boolean = true,
   rotationCount?: number
 ): { address: string; accountIndex: number } {
-  // If only one address or rotation disabled, use primary
-  if (addresses.length <= 1 || !rotationEnabled) {
-    if (addresses.length === 0) throw new Error('No addresses available')
-    return { address: addresses[0], accountIndex: 0 }
-  }
+  if (addresses.length === 0) throw new Error('No addresses available')
 
-  // Rotation addresses are indices 1+ (skip primary at index 0)
-  // Only use the first `rotationCount` if specified
-  let rotationAddrs = addresses
+  // Use first `rotationCount` addresses, or all if not specified
+  let candidates = addresses
     .map((addr, i) => ({ address: addr, accountIndex: i }))
-    .filter(a => a.accountIndex !== 0 && a.address)
+    .filter(a => a.address)
 
   if (rotationCount !== undefined && rotationCount > 0) {
-    rotationAddrs = rotationAddrs.filter(a => a.accountIndex <= rotationCount)
+    candidates = candidates.filter(a => a.accountIndex < rotationCount)
   }
 
-  // If no rotation addresses exist, fall back to primary
-  if (rotationAddrs.length === 0) {
+  if (candidates.length === 0) {
     return { address: addresses[0], accountIndex: 0 }
+  }
+
+  // Single address — return directly
+  if (candidates.length === 1) {
+    return candidates[0]
   }
 
   // Sort by last used (ascending — least recent first)
-  const sorted = [...rotationAddrs].sort((a, b) => {
+  const sorted = [...candidates].sort((a, b) => {
     const aUsage = usage[a.accountIndex] ?? 0
     const bUsage = usage[b.accountIndex] ?? 0
     return aUsage - bUsage

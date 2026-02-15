@@ -4,7 +4,7 @@ import { Zap, Copy, Check, ArrowRight, ArrowLeft, Shield, Key, Loader2, AlertCir
 import { useWallet } from '@/lib/wallet/WalletContext'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
-import { generateFriendlyUsername } from '@/lib/wallet/walletService'
+import { registerRandomAddressForAccount, expandWalletPool } from '@/lib/wallet/walletService'
 import type { Merchant } from '@/lib/types'
 
 type Step = 'welcome' | 'generate' | 'complete'
@@ -13,10 +13,8 @@ export function SetupWizard() {
   const navigate = useNavigate()
   const {
     isConnecting,
-    lightningAddress,
     generateMnemonic,
     createWallet,
-    setLightningUsername,
     refreshLightningAddress,
     error: walletError,
     clearError,
@@ -54,27 +52,33 @@ export function SetupWizard() {
     try {
       await createWallet(mnemonic)
 
-      // Auto-register a random Lightning address
-      const randomUsername = generateFriendlyUsername()
-      await setLightningUsername(randomUsername)
+      // Expand to 10 wallets (accounts 0-9)
+      await expandWalletPool(10)
+
+      // Register random addresses on all 10 accounts
+      const allAddresses: string[] = []
+      for (let i = 0; i < 10; i++) {
+        const addr = await registerRandomAddressForAccount(i)
+        allAddresses.push(addr)
+      }
+
       await refreshLightningAddress()
 
-      // Save merchant and sync to server
-      const fullAddress = `${randomUsername}@breez.cash`
+      // Save merchant with all addresses, rotationCount=1 by default
       const initialApiKey = generateApiKey()
       const now = new Date().toISOString()
 
       const merchant: Merchant = {
         id: generateId(),
-        lightningAddress: fullAddress,
-        lightningAddresses: [fullAddress],
+        lightningAddress: allAddresses[0],
+        lightningAddresses: allAddresses,
         storeName: '',
         redirectUrl: null,
         redirectSecret: generateSecret(),
         apiKey: initialApiKey,
         apiKeys: [{ key: initialApiKey, label: 'Default', createdAt: now, active: true }],
-        rotationEnabled: false,
-        rotationCount: 5,
+        rotationEnabled: true,
+        rotationCount: 1,
         createdAt: now,
       }
       saveMerchant(merchant)
@@ -315,19 +319,6 @@ export function SetupWizard() {
             <h1 className="text-4xl font-bold mb-4">You're All Set!</h1>
             <p className="text-xl text-gray-400 mb-8 max-w-md mx-auto">
               Your wallet is ready. Start accepting Bitcoin payments instantly.
-            </p>
-
-            {lightningAddress && (
-              <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6 mb-4 max-w-sm mx-auto">
-                <p className="text-sm text-gray-400 mb-2">Your Lightning Address</p>
-                <p className="font-mono text-xl font-bold text-glow-400">
-                  {lightningAddress.lightningAddress}
-                </p>
-              </div>
-            )}
-
-            <p className="text-sm text-gray-500 mb-8">
-              You can customize your Lightning address username in Settings.
             </p>
 
             <button
