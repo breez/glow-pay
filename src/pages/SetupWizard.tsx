@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Zap, Copy, Check, ArrowRight, ArrowLeft, Shield, Key, User, Loader2, AlertCircle } from 'lucide-react'
+import { Zap, Copy, Check, ArrowRight, ArrowLeft, Shield, Key, Loader2, AlertCircle } from 'lucide-react'
 import { useWallet } from '@/lib/wallet/WalletContext'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
+import { generateRandomUsername } from '@/lib/wallet/walletService'
 import type { Merchant } from '@/lib/types'
 
-type Step = 'welcome' | 'generate' | 'username' | 'store' | 'complete'
+type Step = 'welcome' | 'generate' | 'complete'
 
 export function SetupWizard() {
   const navigate = useNavigate()
@@ -15,7 +16,6 @@ export function SetupWizard() {
     lightningAddress,
     generateMnemonic,
     createWallet,
-    checkUsernameAvailable,
     setLightningUsername,
     refreshLightningAddress,
     error: walletError,
@@ -26,18 +26,7 @@ export function SetupWizard() {
   const [mnemonic, setMnemonic] = useState('')
   const [copied, setCopied] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
-  
-  // Username step
-  const [username, setUsername] = useState('')
-  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
-  const [checkingUsername, setCheckingUsername] = useState(false)
-  const [usernameError, setUsernameError] = useState<string | null>(null)
-  const [settingUsername, setSettingUsername] = useState(false)
-  
-  // Store step
-  const [storeName, setStoreName] = useState('')
-  const [redirectUrl, setRedirectUrl] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   // Redirect to dashboard if already set up
   useEffect(() => {
@@ -54,80 +43,33 @@ export function SetupWizard() {
     }
   }, [step, mnemonic, generateMnemonic])
 
-  // Check username availability with debounce
-  useEffect(() => {
-    if (!username || username.length < 3) {
-      setUsernameAvailable(null)
-      setUsernameError(null)
-      return
-    }
-
-    const timer = setTimeout(async () => {
-      setCheckingUsername(true)
-      setUsernameError(null)
-      try {
-        const available = await checkUsernameAvailable(username)
-        setUsernameAvailable(available)
-        if (!available) {
-          setUsernameError('Username is already taken')
-        }
-      } catch {
-        setUsernameError('Failed to check availability')
-      } finally {
-        setCheckingUsername(false)
-      }
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [username, checkUsernameAvailable])
-
   const handleCopy = async () => {
     await navigator.clipboard.writeText(mnemonic)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const [createError, setCreateError] = useState<string | null>(null)
-  
   const handleCreateWallet = async () => {
     setCreateError(null)
     try {
       await createWallet(mnemonic)
+
+      // Auto-register a random Lightning address
+      const randomUsername = generateRandomUsername()
+      await setLightningUsername(randomUsername)
       await refreshLightningAddress()
-      setStep('username')
-    } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create wallet')
-    }
-  }
 
-  const handleSetUsername = async () => {
-    if (!username || !usernameAvailable) return
-
-    setSettingUsername(true)
-    try {
-      await setLightningUsername(username)
-      setStep('store')
-    } catch (err) {
-      setUsernameError(err instanceof Error ? err.message : 'Failed to register address')
-    } finally {
-      setSettingUsername(false)
-    }
-  }
-
-  const handleSaveStore = async () => {
-    if (!lightningAddress?.lightningAddress) return
-
-    setSaving(true)
-    try {
+      // Save merchant and sync to server
+      const fullAddress = `${randomUsername}@breez.cash`
       const initialApiKey = generateApiKey()
       const now = new Date().toISOString()
 
       const merchant: Merchant = {
         id: generateId(),
-        lightningAddress: lightningAddress.lightningAddress,
-        lightningAddresses: [lightningAddress.lightningAddress],
-        storeName: storeName || '',
-        redirectUrl: redirectUrl || null,
+        lightningAddress: fullAddress,
+        lightningAddresses: [fullAddress],
+        storeName: '',
+        redirectUrl: null,
         redirectSecret: generateSecret(),
         apiKey: initialApiKey,
         apiKeys: [{ key: initialApiKey, label: 'Default', createdAt: now, active: true }],
@@ -137,7 +79,6 @@ export function SetupWizard() {
       }
       saveMerchant(merchant)
 
-      // Sync to server for API access
       try {
         await syncMerchantToServer({
           merchantId: merchant.id,
@@ -154,8 +95,8 @@ export function SetupWizard() {
       }
 
       setStep('complete')
-    } finally {
-      setSaving(false)
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create wallet')
     }
   }
 
@@ -171,19 +112,19 @@ export function SetupWizard() {
           </div>
           <span className="text-xl font-bold">Glow Pay</span>
           <span className="text-gray-500">•</span>
-          <span className="text-gray-400">Setup Wizard</span>
+          <span className="text-gray-400">Setup</span>
         </div>
       </header>
 
       <main className="max-w-2xl mx-auto px-6 py-12">
         {/* Progress indicator */}
         <div className="flex items-center justify-center gap-2 mb-12">
-          {['welcome', 'generate', 'username', 'store', 'complete'].map((s, i) => (
+          {['welcome', 'generate', 'complete'].map((s, i) => (
             <div
               key={s}
               className={`w-2 h-2 rounded-full transition-colors ${
-                s === step ? 'bg-glow-400 w-8' : 
-                ['welcome', 'generate', 'username', 'store', 'complete'].indexOf(step) > i 
+                s === step ? 'bg-glow-400 w-8' :
+                ['welcome', 'generate', 'complete'].indexOf(step) > i
                   ? 'bg-glow-400/50' : 'bg-white/20'
               }`}
             />
@@ -211,26 +152,17 @@ export function SetupWizard() {
             </div>
             <h1 className="text-4xl font-bold mb-4">Welcome to Glow Pay</h1>
             <p className="text-xl text-gray-400 mb-8 max-w-md mx-auto">
-              Let's set up your non-custodial Lightning wallet to start accepting Bitcoin payments.
+              Set up your non-custodial Lightning wallet and start accepting Bitcoin payments.
             </p>
-            
+
             <div className="grid gap-4 max-w-sm mx-auto mb-8">
               <div className="flex items-center gap-4 text-left bg-surface-800/50 rounded-xl p-4">
                 <div className="w-10 h-10 rounded-lg bg-glow-400/20 flex items-center justify-center flex-shrink-0">
                   <Key className="w-5 h-5 text-glow-400" />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Create Wallet</h3>
-                  <p className="text-sm text-gray-400">Generate your secure recovery phrase</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-left bg-surface-800/50 rounded-xl p-4">
-                <div className="w-10 h-10 rounded-lg bg-glow-400/20 flex items-center justify-center flex-shrink-0">
-                  <User className="w-5 h-5 text-glow-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Choose Username</h3>
-                  <p className="text-sm text-gray-400">Get your @breez.cash Lightning address</p>
+                  <h3 className="font-semibold">Save Recovery Phrase</h3>
+                  <p className="text-sm text-gray-400">Your only backup to recover funds</p>
                 </div>
               </div>
               <div className="flex items-center gap-4 text-left bg-surface-800/50 rounded-xl p-4">
@@ -248,7 +180,7 @@ export function SetupWizard() {
               onClick={() => setStep('generate')}
               className="inline-flex items-center gap-2 px-8 py-4 bg-glow-400 hover:bg-glow-300 text-surface-900 font-bold rounded-xl text-lg transition-all hover:scale-105 glow-box"
             >
-              Create New Wallet
+              Get Started
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
@@ -366,174 +298,7 @@ export function SetupWizard() {
                 </>
               ) : (
                 <>
-                  Continue
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* Step: Choose Username */}
-        {step === 'username' && (
-          <div>
-            <button
-              onClick={() => setStep('generate')}
-              className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-glow-400/20 flex items-center justify-center mx-auto mb-4">
-                <User className="w-8 h-8 text-glow-400" />
-              </div>
-              <h1 className="text-3xl font-bold mb-2">Choose Your Username</h1>
-              <p className="text-gray-400">
-                This will be your Lightning address for receiving payments.
-              </p>
-            </div>
-
-            <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6 mb-6">
-              <label className="block text-sm text-gray-400 mb-2">Lightning Address</label>
-              <div className="flex">
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
-                  placeholder="yourname"
-                  className="flex-1 px-4 py-3 bg-surface-700 border border-white/10 border-r-0 rounded-l-xl focus:outline-none focus:border-glow-400 focus:z-10 transition-colors font-mono"
-                />
-                <div className="px-4 py-3 bg-surface-900 border border-white/10 rounded-r-xl text-gray-400 font-medium flex items-center">
-                  @breez.cash
-                </div>
-              </div>
-              
-              {/* Availability indicator */}
-              <div className="mt-3 h-6">
-                {checkingUsername && (
-                  <div className="flex items-center gap-2 text-gray-400 text-sm">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Checking availability...
-                  </div>
-                )}
-                {!checkingUsername && usernameAvailable === true && username.length >= 3 && (
-                  <div className="flex items-center gap-2 text-green-400 text-sm">
-                    <Check className="w-4 h-4" />
-                    {username}@breez.cash is available!
-                  </div>
-                )}
-                {!checkingUsername && usernameError && (
-                  <div className="flex items-center gap-2 text-red-400 text-sm">
-                    <AlertCircle className="w-4 h-4" />
-                    {usernameError}
-                  </div>
-                )}
-                {!checkingUsername && username.length > 0 && username.length < 3 && (
-                  <div className="text-gray-500 text-sm">
-                    Username must be at least 3 characters
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <button
-              onClick={handleSetUsername}
-              disabled={!usernameAvailable || settingUsername || username.length < 3}
-              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-glow-400 hover:bg-glow-300 disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-colors"
-            >
-              {settingUsername ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Registering...
-                </>
-              ) : (
-                <>
-                  Continue
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
-          </div>
-        )}
-
-        {/* Step: Store Info */}
-        {step === 'store' && (
-          <div>
-            <button
-              onClick={() => setStep('username')}
-              className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-glow-400/20 flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-glow-400" />
-              </div>
-              <h1 className="text-3xl font-bold mb-2">Store Information</h1>
-              <p className="text-gray-400">
-                Optional details about your store (you can change these later).
-              </p>
-            </div>
-
-            {/* Lightning address display */}
-            {lightningAddress && (
-              <div className="bg-glow-400/10 border border-glow-400/30 rounded-2xl p-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <Zap className="w-5 h-5 text-glow-400" />
-                  <div>
-                    <p className="text-sm text-gray-400">Your Lightning Address</p>
-                    <p className="font-mono font-bold text-glow-400">
-                      {lightningAddress.lightningAddress}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-4 mb-8">
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Store Name (optional)</label>
-                <input
-                  type="text"
-                  value={storeName}
-                  onChange={(e) => setStoreName(e.target.value)}
-                  placeholder="My Store"
-                  className="w-full px-4 py-3 bg-surface-700 border border-white/10 rounded-xl focus:outline-none focus:border-glow-400 transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm text-gray-400 mb-2">Success Redirect URL (optional)</label>
-                <input
-                  type="url"
-                  value={redirectUrl}
-                  onChange={(e) => setRedirectUrl(e.target.value)}
-                  placeholder="https://yoursite.com/success"
-                  className="w-full px-4 py-3 bg-surface-700 border border-white/10 rounded-xl focus:outline-none focus:border-glow-400 transition-colors"
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  After successful payment, customers will be redirected here with payment details.
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={handleSaveStore}
-              disabled={saving}
-              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-glow-400 hover:bg-glow-300 disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-colors"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  Complete Setup
+                  Create Wallet
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
@@ -553,13 +318,17 @@ export function SetupWizard() {
             </p>
 
             {lightningAddress && (
-              <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6 mb-8 max-w-sm mx-auto">
+              <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6 mb-4 max-w-sm mx-auto">
                 <p className="text-sm text-gray-400 mb-2">Your Lightning Address</p>
                 <p className="font-mono text-xl font-bold text-glow-400">
                   {lightningAddress.lightningAddress}
                 </p>
               </div>
             )}
+
+            <p className="text-sm text-gray-500 mb-8">
+              You can customize your Lightning address username in Settings.
+            </p>
 
             <button
               onClick={() => navigate('/dashboard')}
