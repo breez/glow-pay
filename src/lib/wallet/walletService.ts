@@ -1,5 +1,6 @@
 import * as breezSdk from '@breeztech/breez-sdk-spark'
 import { isWasmInitialized } from './wasmLoader'
+import { getAddressUsage, updateAddressUsage } from '../store'
 
 interface EventListener {
   onEvent: (event: breezSdk.SdkEvent) => void
@@ -17,13 +18,30 @@ class WebLogger {
   }
 }
 
-let sdk: breezSdk.BreezSdk | null = null
+export const POOL_SIZE = 5
+
+export interface WalletInstance {
+  sdk: breezSdk.BreezSdk
+  accountNumber: number
+  lightningAddress: string | null
+}
+
+export interface AggregateBalance {
+  totalBalanceSats: number
+  perWallet: Array<{
+    accountNumber: number
+    balanceSats: number
+    address: string | null
+  }>
+}
+
+let walletPool: WalletInstance[] = []
 let logger: WebLogger | null = null
 
 const API_KEY = 'MIIBazCCAR2gAwIBAgIHPdG0GExEwzAFBgMrZXAwEDEOMAwGA1UEAxMFQnJlZXowHhcNMjUwMjIwMTIyODIxWhcNMzUwMjE4MTIyODIxWjAnMQ0wCwYDVQQKEwRUZXN0MRYwFAYDVQQDEw1Sb3kgU2hlaW5mZWxkMCowBQYDK2VwAyEA0IP1y98gPByiIMoph1P0G6cctLb864rNXw1LRLOpXXejfzB9MA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTaOaPuXmtLDTJVv++VYBiQr9gHCTAfBgNVHSMEGDAWgBTeqtaSVvON53SSFvxMtiCyayiYazAdBgNVHREEFjAUgRJraW5nb25seUBnbWFpbC5jb20wBQYDK2VwA0EAINTIeR5+LrLIngPjGFrBrPzdRv4yN8kjNgRVdFDoa1fZPlynm4GjKoTGg8sHxEcRKP1QN2YP0s6NSDT3C+MIDw=='
 
-export const initWallet = async (mnemonic: string, network: breezSdk.Network = 'mainnet'): Promise<void> => {
-  if (sdk) return
+export const initWalletPool = async (mnemonic: string, network: breezSdk.Network = 'mainnet'): Promise<void> => {
+  if (walletPool.length > 0) return
 
   if (!isWasmInitialized()) {
     throw new Error('WASM module not initialized. Please refresh the page.')
@@ -33,46 +51,260 @@ export const initWallet = async (mnemonic: string, network: breezSdk.Network = '
     logger = new WebLogger()
     breezSdk.initLogging(logger)
   }
-  
-  const config = breezSdk.defaultConfig(network)
-  config.apiKey = API_KEY
-  config.privateEnabledDefault = false
-  config.lnurlDomain = 'breez.cash'
-  
-  sdk = await breezSdk.connect({
-    config,
-    seed: { type: 'mnemonic', mnemonic },
-    storageDir: 'glow-pay-wallet',
-  })
-  
-  // Enable public mode for LNURL-verify
-  await sdk.updateUserSettings({ sparkPrivateModeEnabled: false }).catch(() => {})
-}
 
-export const getWalletInfo = async (): Promise<breezSdk.GetInfoResponse | null> => {
-  if (!sdk) return null
-  return await sdk.getInfo({})
-}
+  for (let i = 0; i < POOL_SIZE; i++) {
+    const config = breezSdk.defaultConfig(network)
+    config.apiKey = API_KEY
+    config.privateEnabledDefault = false
+    config.lnurlDomain = 'breez.cash'
 
-export const addEventListener = async (callback: (event: breezSdk.SdkEvent) => void): Promise<string> => {
-  if (!sdk) throw new Error('SDK not initialized')
-  const listener: EventListener = { onEvent: callback }
-  return await sdk.addEventListener(listener)
-}
+    const keySetConfig: breezSdk.KeySetConfig = {
+      keySetType: 'default',
+      useAddressIndex: false,
+      accountNumber: i,
+    }
 
-export const removeEventListener = async (listenerId: string): Promise<void> => {
-  if (!sdk || !listenerId) return
-  await sdk.removeEventListener(listenerId)
-}
+    const signer = breezSdk.defaultExternalSigner(mnemonic, null, network, keySetConfig)
+    const sdk = await breezSdk.connectWithSigner(config, signer, `glow-pay-wallet-${i}`)
 
-export const disconnect = async (): Promise<void> => {
-  if (sdk) {
-    await sdk.disconnect()
-    sdk = null
+    // Enable public mode for LNURL-verify
+    await sdk.updateUserSettings({ sparkPrivateModeEnabled: false }).catch(() => {})
+
+    const addrInfo = await sdk.getLightningAddress().catch(() => undefined)
+
+    walletPool.push({
+      sdk,
+      accountNumber: i,
+      lightningAddress: addrInfo?.lightningAddress ?? null,
+    })
+
+    console.log(`Wallet account ${i} connected${addrInfo ? ` (${addrInfo.lightningAddress})` : ''}`)
   }
 }
 
-export const connected = (): boolean => sdk !== null
+// Address rotation: weighted-random favoring least-recently-used
+export const selectAddress = (): { address: string; accountIndex: number } => {
+  const addressesWithIndex = walletPool
+    .filter(w => w.lightningAddress !== null)
+    .map(w => ({ address: w.lightningAddress!, accountIndex: w.accountNumber }))
+
+  if (addressesWithIndex.length === 0) {
+    throw new Error('No Lightning addresses registered in wallet pool')
+  }
+
+  const usage = getAddressUsage()
+
+  // Sort by last used (ascending — least recent first)
+  const sorted = [...addressesWithIndex].sort((a, b) => {
+    const aUsage = usage[a.accountIndex] ?? 0
+    const bUsage = usage[b.accountIndex] ?? 0
+    return aUsage - bUsage
+  })
+
+  // Assign weights: first in sorted order (least recent) gets highest weight
+  const weights = sorted.map((_, i) => sorted.length - i)
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0)
+
+  let random = Math.random() * totalWeight
+  for (let i = 0; i < sorted.length; i++) {
+    random -= weights[i]
+    if (random <= 0) {
+      updateAddressUsage(sorted[i].accountIndex)
+      return sorted[i]
+    }
+  }
+
+  // Fallback (shouldn't reach here)
+  const fallback = sorted[0]
+  updateAddressUsage(fallback.accountIndex)
+  return fallback
+}
+
+// Aggregate balance across all wallets
+export const getAggregateBalance = async (): Promise<AggregateBalance> => {
+  const perWallet: AggregateBalance['perWallet'] = []
+  let totalBalanceSats = 0
+
+  for (const instance of walletPool) {
+    try {
+      const info = await instance.sdk.getInfo({})
+      perWallet.push({
+        accountNumber: instance.accountNumber,
+        balanceSats: info.balanceSats,
+        address: instance.lightningAddress,
+      })
+      totalBalanceSats += info.balanceSats
+    } catch {
+      perWallet.push({
+        accountNumber: instance.accountNumber,
+        balanceSats: 0,
+        address: instance.lightningAddress,
+      })
+    }
+  }
+
+  return { totalBalanceSats, perWallet }
+}
+
+// Get all registered Lightning addresses
+export const getAllLightningAddresses = (): string[] => {
+  return walletPool
+    .map(w => w.lightningAddress)
+    .filter((addr): addr is string => addr !== null)
+}
+
+// Refresh addresses from SDK (after registration)
+export const refreshAllAddresses = async (): Promise<void> => {
+  for (const instance of walletPool) {
+    try {
+      const addrInfo = await instance.sdk.getLightningAddress()
+      instance.lightningAddress = addrInfo?.lightningAddress ?? null
+    } catch {
+      // keep existing
+    }
+  }
+}
+
+// Register Lightning address on a specific account
+export const registerLightningAddressForAccount = async (
+  accountNumber: number,
+  username: string,
+  description: string
+): Promise<breezSdk.LightningAddressInfo> => {
+  const instance = walletPool.find(w => w.accountNumber === accountNumber)
+  if (!instance) throw new Error(`Wallet account ${accountNumber} not connected`)
+
+  const result = await instance.sdk.registerLightningAddress({ username, description })
+  instance.lightningAddress = result.lightningAddress
+  return result
+}
+
+// Check username availability on a specific account
+export const checkLightningAddressAvailableOnAccount = async (
+  accountNumber: number,
+  username: string
+): Promise<boolean> => {
+  const instance = walletPool.find(w => w.accountNumber === accountNumber)
+  if (!instance) throw new Error(`Wallet account ${accountNumber} not connected`)
+  return await instance.sdk.checkLightningAddressAvailable({ username })
+}
+
+// Add event listener to all wallet instances
+export const addEventListenerToAll = async (
+  callback: (event: breezSdk.SdkEvent, accountNumber: number) => void
+): Promise<string[]> => {
+  const listenerIds: string[] = []
+
+  for (const instance of walletPool) {
+    const accountNum = instance.accountNumber
+    const listener: EventListener = {
+      onEvent: (event) => callback(event, accountNum),
+    }
+    const id = await instance.sdk.addEventListener(listener)
+    listenerIds.push(id)
+  }
+
+  return listenerIds
+}
+
+// Remove event listeners from all instances
+export const removeEventListenerFromAll = async (listenerIds: string[]): Promise<void> => {
+  for (let i = 0; i < Math.min(listenerIds.length, walletPool.length); i++) {
+    await walletPool[i].sdk.removeEventListener(listenerIds[i]).catch(() => {})
+  }
+}
+
+// Disconnect all wallet instances
+export const disconnectAll = async (): Promise<void> => {
+  for (const instance of walletPool) {
+    await instance.sdk.disconnect().catch(() => {})
+  }
+  walletPool = []
+}
+
+// Check if all wallets are connected
+export const allConnected = (): boolean => walletPool.length === POOL_SIZE
+
+// Check if any wallet is connected (for basic operations)
+export const connected = (): boolean => walletPool.length > 0
+
+// Get wallet info for a specific account
+export const getWalletInfoForAccount = async (accountNumber: number): Promise<breezSdk.GetInfoResponse | null> => {
+  const instance = walletPool.find(w => w.accountNumber === accountNumber)
+  if (!instance) return null
+  return await instance.sdk.getInfo({})
+}
+
+// Sweep all funds to a target account via Spark addresses
+export const sweepToAccount = async (targetAccountNumber: number): Promise<void> => {
+  const target = walletPool.find(w => w.accountNumber === targetAccountNumber)
+  if (!target) throw new Error(`Target account ${targetAccountNumber} not connected`)
+
+  // Get a Spark address for the target wallet
+  const receiveResponse = await target.sdk.receivePayment({
+    paymentMethod: { type: 'sparkAddress' },
+  })
+  const targetAddress = receiveResponse.paymentRequest
+
+  for (const instance of walletPool) {
+    if (instance.accountNumber === targetAccountNumber) continue
+
+    try {
+      const info = await instance.sdk.getInfo({})
+      if (info.balanceSats <= 0) continue
+
+      // Prepare and send the full balance to target
+      const prepareResponse = await instance.sdk.prepareSendPayment({
+        paymentRequest: targetAddress,
+      })
+
+      await instance.sdk.sendPayment({
+        prepareResponse,
+      })
+
+      console.log(`Swept account ${instance.accountNumber} → account ${targetAccountNumber}`)
+    } catch (err) {
+      console.error(`Failed to sweep account ${instance.accountNumber}:`, err)
+    }
+  }
+}
+
+// --- Backward-compatible functions (delegate to account 0) ---
+
+export const getWalletInfo = async (): Promise<breezSdk.GetInfoResponse | null> => {
+  return getWalletInfoForAccount(0)
+}
+
+export const getLightningAddress = async (): Promise<breezSdk.LightningAddressInfo | null> => {
+  const instance = walletPool.find(w => w.accountNumber === 0)
+  if (!instance) return null
+  return await instance.sdk.getLightningAddress() ?? null
+}
+
+export const checkLightningAddressAvailable = async (username: string): Promise<boolean> => {
+  return checkLightningAddressAvailableOnAccount(0, username)
+}
+
+export const registerLightningAddress = async (username: string, description: string): Promise<void> => {
+  await registerLightningAddressForAccount(0, username, description)
+}
+
+export const addEventListener = async (callback: (event: breezSdk.SdkEvent) => void): Promise<string> => {
+  const instance = walletPool.find(w => w.accountNumber === 0)
+  if (!instance) throw new Error('SDK not initialized')
+  const listener: EventListener = { onEvent: callback }
+  return await instance.sdk.addEventListener(listener)
+}
+
+export const removeEventListener = async (listenerId: string): Promise<void> => {
+  const instance = walletPool.find(w => w.accountNumber === 0)
+  if (!instance) return
+  await instance.sdk.removeEventListener(listenerId)
+}
+
+export const disconnect = async (): Promise<void> => {
+  await disconnectAll()
+}
 
 export const saveMnemonic = (mnemonic: string): void => {
   localStorage.setItem('glowpay_mnemonic', mnemonic)
@@ -86,17 +318,5 @@ export const clearMnemonic = (): void => {
   localStorage.removeItem('glowpay_mnemonic')
 }
 
-export const getLightningAddress = async (): Promise<breezSdk.LightningAddressInfo | null> => {
-  if (!sdk) throw new Error('SDK not initialized')
-  return await sdk.getLightningAddress() ?? null
-}
-
-export const checkLightningAddressAvailable = async (username: string): Promise<boolean> => {
-  if (!sdk) throw new Error('SDK not initialized')
-  return await sdk.checkLightningAddressAvailable({ username })
-}
-
-export const registerLightningAddress = async (username: string, description: string): Promise<void> => {
-  if (!sdk) throw new Error('SDK not initialized')
-  await sdk.registerLightningAddress({ username, description })
-}
+// Keep old initWallet as alias for backward compat
+export const initWallet = initWalletPool

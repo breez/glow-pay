@@ -5,13 +5,39 @@ import type { Merchant, Payment } from './types'
 
 const STORAGE_KEY_MERCHANT = 'glow_pay_merchant'
 const STORAGE_KEY_PAYMENTS = 'glow_pay_payments'
+const STORAGE_KEY_ADDRESS_USAGE = 'glow_pay_address_usage'
+
+// Address usage tracking for rotation
+export function getAddressUsage(): Record<number, number> {
+  const stored = localStorage.getItem(STORAGE_KEY_ADDRESS_USAGE)
+  if (!stored) return {}
+  try {
+    return JSON.parse(stored)
+  } catch {
+    return {}
+  }
+}
+
+export function updateAddressUsage(accountIndex: number): void {
+  const usage = getAddressUsage()
+  usage[accountIndex] = Date.now()
+  localStorage.setItem(STORAGE_KEY_ADDRESS_USAGE, JSON.stringify(usage))
+}
+
+// Migrate old merchant records that lack lightningAddresses
+export function migrateMerchant(merchant: Merchant): Merchant {
+  if (!merchant.lightningAddresses) {
+    merchant.lightningAddresses = [merchant.lightningAddress]
+  }
+  return merchant
+}
 
 // Merchant storage
 export function getMerchant(): Merchant | null {
   const stored = localStorage.getItem(STORAGE_KEY_MERCHANT)
   if (!stored) return null
   try {
-    return JSON.parse(stored)
+    return migrateMerchant(JSON.parse(stored))
   } catch {
     return null
   }

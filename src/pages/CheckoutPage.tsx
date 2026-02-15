@@ -77,7 +77,9 @@ export function CheckoutPage() {
     if (!verifyUrl && payment.invoice) {
       const paymentHash = extractPaymentHash(payment.invoice)
       if (paymentHash) {
-        verifyUrl = buildVerifyUrl(merchant.lightningAddress, paymentHash)
+        // Use the specific address that was used for this payment, fall back to primary
+        const addressForVerify = payment.usedAddress || merchant.lightningAddress
+        verifyUrl = buildVerifyUrl(addressForVerify, paymentHash)
       }
     }
     

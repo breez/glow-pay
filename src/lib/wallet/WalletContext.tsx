@@ -1,8 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import * as bip39 from 'bip39'
 import * as breezSdk from '@breeztech/breez-sdk-spark'
 import {
-  initWallet,
+  initWalletPool,
   getWalletInfo,
   disconnect,
   connected,
@@ -11,10 +11,17 @@ import {
   clearMnemonic,
   getLightningAddress,
   checkLightningAddressAvailable,
-  registerLightningAddress,
-  addEventListener,
-  removeEventListener,
+  registerLightningAddressForAccount,
+  addEventListenerToAll,
+  removeEventListenerFromAll,
+  getAggregateBalance,
+  getAllLightningAddresses,
+  refreshAllAddresses,
+  selectAddress,
+  sweepToAccount,
+  POOL_SIZE,
 } from './walletService'
+import type { AggregateBalance } from './walletService'
 
 const MAX_RECONNECT_ATTEMPTS = 3
 const RECONNECT_DELAY_MS = 2000
@@ -35,9 +42,27 @@ interface WalletContextValue {
   checkUsernameAvailable: (username: string) => Promise<boolean>
   setLightningUsername: (username: string) => Promise<void>
   clearError: () => void
+  // Multi-wallet
+  poolSyncProgress: number
+  aggregateBalance: AggregateBalance | null
+  allLightningAddresses: string[]
+  selectPaymentAddress: () => { address: string; accountIndex: number }
+  refreshAggregateBalance: () => Promise<void>
+  registerAllAddresses: (baseUsername: string) => Promise<string[]>
+  sweepFunds: (targetAccount: number) => Promise<void>
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null)
+
+// Generate a random 3-char suffix for rotation usernames
+function randomSuffix(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  for (let i = 0; i < 3; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [isConnecting, setIsConnecting] = useState(false)
@@ -46,9 +71,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletInfo, setWalletInfo] = useState<breezSdk.GetInfoResponse | null>(null)
   const [lightningAddress, setLightningAddress] = useState<breezSdk.LightningAddressInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const eventListenerIdRef = useRef<string | null>(null)
+  const [poolSyncProgress, setPoolSyncProgress] = useState(0)
+  const [aggregateBalance, setAggregateBalance] = useState<AggregateBalance | null>(null)
+  const [allLightningAddresses, setAllLightningAddresses] = useState<string[]>([])
+
+  const eventListenerIdsRef = useRef<string[]>([])
   const reconnectAttemptRef = useRef(0)
   const isRestoringRef = useRef(false)
+  const syncedAccountsRef = useRef<Set<number>>(new Set())
 
   useEffect(() => {
     const savedMnemonic = getSavedMnemonic()
@@ -60,13 +90,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const reconnectWithRetry = async (mnemonic: string) => {
     reconnectAttemptRef.current = 0
     isRestoringRef.current = true
+    syncedAccountsRef.current = new Set()
+    setPoolSyncProgress(0)
     setIsSyncing(true)
 
     const attempt = async (): Promise<void> => {
       try {
         await connectWithMnemonic(mnemonic)
         reconnectAttemptRef.current = 0
-        // Keep isSyncing true until we receive the 'synced' event
       } catch (err) {
         reconnectAttemptRef.current++
         console.warn(`Wallet reconnection attempt ${reconnectAttemptRef.current} failed:`, err)
@@ -76,8 +107,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           return attempt()
         }
 
-        // After all retries failed, don't clear mnemonic - just log the error
-        // The user can manually retry or the app can retry on next load
         console.error('Wallet reconnection failed after all attempts. Mnemonic preserved for next attempt.')
         setError('Failed to connect wallet. Please check your connection and refresh the page.')
         isRestoringRef.current = false
@@ -88,31 +117,42 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     await attempt()
   }
 
-  const handleSdkEvent = useCallback(async (event: breezSdk.SdkEvent) => {
+  const handlePoolEvent = useCallback(async (event: breezSdk.SdkEvent, accountNumber: number) => {
     if (event.type === 'synced') {
-      console.log('Wallet synced event received')
-      // Mark sync complete if we were restoring
-      if (isRestoringRef.current) {
-        isRestoringRef.current = false
-        setIsSyncing(false)
+      console.log(`Wallet account ${accountNumber} synced`)
+      syncedAccountsRef.current.add(accountNumber)
+      setPoolSyncProgress(syncedAccountsRef.current.size)
+
+      // All wallets synced
+      if (syncedAccountsRef.current.size >= POOL_SIZE) {
+        if (isRestoringRef.current) {
+          isRestoringRef.current = false
+          setIsSyncing(false)
+        }
+        // Refresh all data
+        const info = await getWalletInfo()
+        setWalletInfo(info)
+        const addr = await getLightningAddress()
+        setLightningAddress(addr)
+        setAllLightningAddresses(getAllLightningAddresses())
+        const balance = await getAggregateBalance()
+        setAggregateBalance(balance)
       }
-      // Refresh wallet data after sync
-      const info = await getWalletInfo()
-      setWalletInfo(info)
-      const addr = await getLightningAddress()
-      setLightningAddress(addr)
     } else if (event.type === 'paymentSucceeded') {
+      // Refresh balances on any payment
       const info = await getWalletInfo()
       setWalletInfo(info)
+      const balance = await getAggregateBalance()
+      setAggregateBalance(balance)
     }
   }, [])
 
-  // Cleanup event listener on unmount
+  // Cleanup event listeners on unmount
   useEffect(() => {
     return () => {
-      if (eventListenerIdRef.current) {
-        removeEventListener(eventListenerIdRef.current).catch(() => {})
-        eventListenerIdRef.current = null
+      if (eventListenerIdsRef.current.length > 0) {
+        removeEventListenerFromAll(eventListenerIdsRef.current).catch(() => {})
+        eventListenerIdsRef.current = []
       }
     }
   }, [])
@@ -121,24 +161,27 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (connected()) return
     setIsConnecting(true)
     setError(null)
+    syncedAccountsRef.current = new Set()
+    setPoolSyncProgress(0)
     try {
-      await initWallet(mnemonic, 'mainnet')
+      await initWalletPool(mnemonic, 'mainnet')
 
-      // Set up event listener IMMEDIATELY after SDK init, before setting isConnected
-      // This prevents race condition where 'synced' event fires before listener is ready
-      if (!eventListenerIdRef.current) {
+      // Set up event listeners on all instances
+      if (eventListenerIdsRef.current.length === 0) {
         try {
-          const listenerId = await addEventListener(handleSdkEvent)
-          eventListenerIdRef.current = listenerId
-          console.log('Event listener registered:', listenerId)
+          const listenerIds = await addEventListenerToAll(handlePoolEvent)
+          eventListenerIdsRef.current = listenerIds
+          console.log('Event listeners registered on all wallet instances')
         } catch (e) {
-          console.warn('Failed to add event listener:', e)
+          console.warn('Failed to add event listeners:', e)
         }
       }
 
       setIsConnected(true)
       setWalletInfo(await getWalletInfo())
       setLightningAddress(await getLightningAddress())
+      setAllLightningAddresses(getAllLightningAddresses())
+      setAggregateBalance(await getAggregateBalance())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect wallet')
       throw err
@@ -161,21 +204,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const disconnectWallet = useCallback(async () => {
+    if (eventListenerIdsRef.current.length > 0) {
+      await removeEventListenerFromAll(eventListenerIdsRef.current).catch(() => {})
+      eventListenerIdsRef.current = []
+    }
     await disconnect()
     clearMnemonic()
     setIsConnected(false)
     setWalletInfo(null)
     setLightningAddress(null)
+    setAggregateBalance(null)
+    setAllLightningAddresses([])
+    setPoolSyncProgress(0)
   }, [])
 
   const refreshWalletInfo = useCallback(async () => {
     if (!connected()) return
     setWalletInfo(await getWalletInfo())
+    setAggregateBalance(await getAggregateBalance())
   }, [])
 
   const refreshLightningAddress = useCallback(async () => {
     if (!connected()) return
     setLightningAddress(await getLightningAddress())
+    await refreshAllAddresses()
+    setAllLightningAddresses(getAllLightningAddresses())
   }, [])
 
   const checkUsernameAvailable = useCallback(async (username: string) => {
@@ -183,8 +236,67 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setLightningUsername = useCallback(async (username: string) => {
-    await registerLightningAddress(username, `Pay to ${username}@breez.cash`)
+    await registerLightningAddressForAccount(0, username, `Pay to ${username}@breez.cash`)
     setLightningAddress(await getLightningAddress())
+  }, [])
+
+  const selectPaymentAddress = useCallback(() => {
+    return selectAddress()
+  }, [])
+
+  const refreshAggregateBalance = useCallback(async () => {
+    if (!connected()) return
+    setAggregateBalance(await getAggregateBalance())
+  }, [])
+
+  const registerAllAddresses = useCallback(async (baseUsername: string): Promise<string[]> => {
+    const addresses: string[] = []
+
+    // Account 0: use the base username (already registered by setLightningUsername)
+    const addr0 = getAllLightningAddresses()[0]
+    if (addr0) {
+      addresses.push(addr0)
+    } else {
+      const result = await registerLightningAddressForAccount(0, baseUsername, `Pay to ${baseUsername}@breez.cash`)
+      addresses.push(result.lightningAddress)
+    }
+
+    // Accounts 1-4: derived usernames with random suffix
+    for (let i = 1; i < POOL_SIZE; i++) {
+      let registered = false
+      let attempts = 0
+
+      while (!registered && attempts < 5) {
+        const suffix = randomSuffix()
+        const derivedUsername = `${baseUsername}_${suffix}`
+        try {
+          const result = await registerLightningAddressForAccount(
+            i,
+            derivedUsername,
+            `Pay to ${derivedUsername}@breez.cash`
+          )
+          addresses.push(result.lightningAddress)
+          registered = true
+        } catch {
+          attempts++
+          console.warn(`Username ${derivedUsername} failed, retrying (attempt ${attempts})`)
+        }
+      }
+
+      if (!registered) {
+        throw new Error(`Failed to register Lightning address for account ${i} after 5 attempts`)
+      }
+    }
+
+    await refreshAllAddresses()
+    setAllLightningAddresses(getAllLightningAddresses())
+    return addresses
+  }, [])
+
+  const sweepFunds = useCallback(async (targetAccount: number) => {
+    await sweepToAccount(targetAccount)
+    setAggregateBalance(await getAggregateBalance())
+    setWalletInfo(await getWalletInfo())
   }, [])
 
   return (
@@ -204,6 +316,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       checkUsernameAvailable,
       setLightningUsername,
       clearError: () => setError(null),
+      // Multi-wallet
+      poolSyncProgress,
+      aggregateBalance,
+      allLightningAddresses,
+      selectPaymentAddress,
+      refreshAggregateBalance,
+      registerAllAddresses,
+      sweepFunds,
     }}>
       {children}
     </WalletContext.Provider>

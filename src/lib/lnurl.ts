@@ -10,7 +10,7 @@ export function extractPaymentHash(invoice: string): string | null {
     const paymentHashSection = decoded.sections.find(
       (s: { name: string }) => s.name === 'payment_hash'
     )
-    return paymentHashSection?.value || null
+    return (paymentHashSection as { name: string; value: string } | undefined)?.value || null
   } catch (err) {
     console.error('Failed to decode bolt11 invoice:', err)
     return null

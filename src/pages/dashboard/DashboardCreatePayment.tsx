@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { Zap, ArrowLeft, ExternalLink, Copy, Check } from 'lucide-react'
 import { getMerchant, savePayment, generateId } from '@/lib/store'
 import { fetchLnurlPayInfo, requestInvoice, satsToMsats, formatSats, extractPaymentHash, buildVerifyUrl } from '@/lib/lnurl'
+import { useWallet } from '@/lib/wallet/WalletContext'
 import type { Payment } from '@/lib/types'
 
 export function DashboardCreatePayment() {
   const navigate = useNavigate()
+  const { selectPaymentAddress } = useWallet()
   const [amountSats, setAmountSats] = useState('')
   const [description, setDescription] = useState('')
   const [creating, setCreating] = useState(false)
@@ -33,11 +35,14 @@ export function DashboardCreatePayment() {
     setError(null)
 
     try {
-      console.log('Creating payment for Lightning address:', merchant.lightningAddress)
+      // Select a rotation address for this payment
+      const selected = selectPaymentAddress()
+      console.log('Creating payment for rotation address:', selected.address, '(account', selected.accountIndex, ')')
+
       // Fetch LNURL-pay info
-      const lnurlInfo = await fetchLnurlPayInfo(merchant.lightningAddress)
+      const lnurlInfo = await fetchLnurlPayInfo(selected.address)
       console.log('LNURL-pay info:', lnurlInfo)
-      
+
       // Check amount limits
       const msats = satsToMsats(sats)
       if (msats < lnurlInfo.minSendable || msats > lnurlInfo.maxSendable) {
@@ -56,7 +61,7 @@ export function DashboardCreatePayment() {
       if (!verifyUrl) {
         const paymentHash = extractPaymentHash(invoiceResponse.pr)
         if (paymentHash) {
-          verifyUrl = buildVerifyUrl(merchant.lightningAddress, paymentHash)
+          verifyUrl = buildVerifyUrl(selected.address, paymentHash)
           console.log('Constructed verify URL:', verifyUrl)
         }
       }
@@ -75,6 +80,8 @@ export function DashboardCreatePayment() {
         createdAt: new Date().toISOString(),
         paidAt: null,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 min expiry
+        accountIndex: selected.accountIndex,
+        usedAddress: selected.address,
       }
 
       savePayment(payment)

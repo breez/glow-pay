@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Save, Copy, Check, RefreshCw, Zap } from 'lucide-react'
+import { Save, Copy, Check, RefreshCw, Zap, Shield, AlertTriangle, Loader2 } from 'lucide-react'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
-import { fetchLnurlPayInfo } from '@/lib/lnurl'
+import { fetchLnurlPayInfo, formatSats } from '@/lib/lnurl'
+import { useWallet } from '@/lib/wallet/WalletContext'
 import type { Merchant } from '@/lib/types'
 
 export function DashboardSettings() {
+  const { allLightningAddresses, aggregateBalance, sweepFunds, refreshAggregateBalance } = useWallet()
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [lightningUsername, setLightningUsername] = useState('')
   const [storeName, setStoreName] = useState('')
@@ -14,6 +16,10 @@ export function DashboardSettings() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [copiedKey, setCopiedKey] = useState(false)
+  const [showAddresses, setShowAddresses] = useState(false)
+  const [sweeping, setSweeping] = useState(false)
+  const [sweepConfirm, setSweepConfirm] = useState(false)
+  const [sweepSuccess, setSweepSuccess] = useState(false)
 
   useEffect(() => {
     const m = getMerchant()
@@ -59,6 +65,9 @@ export function DashboardSettings() {
     const updatedMerchant: Merchant = {
       id: merchant?.id || generateId(),
       lightningAddress: fullAddress,
+      lightningAddresses: merchant?.lightningAddresses || allLightningAddresses.length > 0
+        ? (merchant?.lightningAddresses || allLightningAddresses)
+        : [fullAddress],
       storeName,
       redirectUrl: redirectUrl || null,
       redirectSecret: merchant?.redirectSecret || generateSecret(),
@@ -88,6 +97,24 @@ export function DashboardSettings() {
     setMerchant(updatedMerchant)
   }
 
+  const handleSweep = async () => {
+    setSweeping(true)
+    setSweepSuccess(false)
+    try {
+      await sweepFunds(0)
+      await refreshAggregateBalance()
+      setSweepSuccess(true)
+      setTimeout(() => setSweepSuccess(false), 3000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to consolidate funds')
+    } finally {
+      setSweeping(false)
+      setSweepConfirm(false)
+    }
+  }
+
+  const addresses = merchant?.lightningAddresses || allLightningAddresses
+
   return (
     <div className="max-w-2xl">
       <h1 className="text-3xl font-bold mb-2">Settings</h1>
@@ -101,7 +128,7 @@ export function DashboardSettings() {
             Lightning Address
           </h2>
           <p className="text-gray-400 text-sm mb-4">
-            Enter your Glow wallet username. This is where payments will be sent.
+            Your primary Lightning address. Payments are distributed across rotation addresses for privacy.
           </p>
           <div className="relative flex">
             <input
@@ -118,12 +145,111 @@ export function DashboardSettings() {
               )}
             </div>
           </div>
+
+          {/* Rotation addresses */}
+          {addresses.length > 1 && (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowAddresses(!showAddresses)}
+                className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-400"
+              >
+                <Shield className="w-4 h-4" />
+                {showAddresses ? 'Hide' : 'Show'} {addresses.length} rotation addresses
+              </button>
+              {showAddresses && (
+                <div className="mt-3 space-y-2">
+                  {addresses.map((addr: string, i: number) => (
+                    <div
+                      key={addr}
+                      className="flex items-center justify-between px-3 py-2 bg-surface-900 rounded-lg text-sm"
+                    >
+                      <span className="font-mono text-gray-400">{addr}</span>
+                      <span className={`text-xs ${i === 0 ? 'text-glow-400' : 'text-gray-600'}`}>
+                        {i === 0 ? 'Primary' : `Rotation ${i}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
+        {/* Fund Consolidation */}
+        {aggregateBalance && aggregateBalance.perWallet.filter((w: { balanceSats: number }) => w.balanceSats > 0).length > 1 && (
+          <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-glow-400" />
+              Fund Consolidation
+            </h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Consolidate funds from all rotation wallets into your primary wallet. Spark-to-Spark transfers have zero fees.
+            </p>
+
+            <div className="bg-surface-900 rounded-xl p-4 mb-4 space-y-1">
+              {aggregateBalance.perWallet.map((w: { accountNumber: number; balanceSats: number; address: string | null }) => (
+                <div key={w.accountNumber} className="flex justify-between text-sm">
+                  <span className="text-gray-400">
+                    {w.address ? w.address.split('@')[0] : `Account ${w.accountNumber}`}
+                    {w.accountNumber === 0 && ' (primary)'}
+                  </span>
+                  <span className="font-mono">{formatSats(w.balanceSats)} sats</span>
+                </div>
+              ))}
+            </div>
+
+            {!sweepConfirm ? (
+              <button
+                onClick={() => setSweepConfirm(true)}
+                className="w-full py-3 bg-surface-700 hover:bg-surface-600 rounded-xl transition-colors text-sm font-medium"
+              >
+                Consolidate to Primary Wallet
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-400">
+                    Consolidating links your rotation wallets on Sparkscan. Only do this when you need the funds in one place.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setSweepConfirm(false)}
+                    className="flex-1 py-3 bg-surface-700 hover:bg-surface-600 rounded-xl transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSweep}
+                    disabled={sweeping}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-glow-400 hover:bg-glow-300 disabled:bg-gray-600 text-surface-900 font-semibold rounded-xl transition-colors text-sm"
+                  >
+                    {sweeping ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Sweeping...
+                      </>
+                    ) : (
+                      'Confirm Consolidation'
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {sweepSuccess && (
+              <div className="mt-3 bg-green-500/20 border border-green-500/30 rounded-xl p-3 text-green-400 text-sm">
+                Funds consolidated successfully!
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Store Info */}
         <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
           <h2 className="text-lg font-bold mb-4">Store Information</h2>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-400 mb-2">Store Name (optional)</label>

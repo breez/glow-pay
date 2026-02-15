@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Zap, TrendingUp, Clock, ArrowRight, AlertCircle } from 'lucide-react'
+import { TrendingUp, Clock, ArrowRight, AlertCircle, Wallet } from 'lucide-react'
 import { getMerchant, getPayments } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
+import { useWallet } from '@/lib/wallet/WalletContext'
 import type { Merchant, Payment } from '@/lib/types'
 
 export function DashboardHome() {
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
+  const { aggregateBalance } = useWallet()
+  const [showWalletBreakdown, setShowWalletBreakdown] = useState(false)
 
   useEffect(() => {
     setMerchant(getMerchant())
@@ -15,7 +18,6 @@ export function DashboardHome() {
   }, [])
 
   const completedPayments = payments.filter(p => p.status === 'completed')
-  const totalSats = completedPayments.reduce((sum, p) => sum + p.amountSats, 0)
   const recentPayments = payments.slice(0, 5)
 
   // If no merchant is set up, show onboarding
@@ -65,11 +67,31 @@ export function DashboardHome() {
         <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-glow-400/20 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-glow-400" />
+              <Wallet className="w-5 h-5 text-glow-400" />
             </div>
-            <span className="text-gray-400">Total Received</span>
+            <span className="text-gray-400">Wallet Balance</span>
           </div>
-          <p className="text-3xl font-bold">{formatSats(totalSats)} <span className="text-lg text-gray-400">sats</span></p>
+          <p className="text-3xl font-bold">
+            {formatSats(aggregateBalance?.totalBalanceSats ?? 0)} <span className="text-lg text-gray-400">sats</span>
+          </p>
+          {aggregateBalance && aggregateBalance.perWallet.length > 1 && (
+            <button
+              onClick={() => setShowWalletBreakdown(!showWalletBreakdown)}
+              className="text-xs text-gray-500 hover:text-gray-400 mt-2"
+            >
+              {showWalletBreakdown ? 'Hide' : 'Show'} across {aggregateBalance.perWallet.length} wallets
+            </button>
+          )}
+          {showWalletBreakdown && aggregateBalance && (
+            <div className="mt-3 space-y-1">
+              {aggregateBalance.perWallet.map((w: { accountNumber: number; balanceSats: number; address: string | null }) => (
+                <div key={w.accountNumber} className="flex justify-between text-xs text-gray-500">
+                  <span>{w.address ? w.address.split('@')[0] : `Account ${w.accountNumber}`}</span>
+                  <span>{formatSats(w.balanceSats)} sats</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="bg-surface-800/50 border border-white/10 rounded-2xl p-6">
