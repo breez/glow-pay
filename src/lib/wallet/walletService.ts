@@ -18,7 +18,7 @@ class WebLogger {
   }
 }
 
-export const POOL_SIZE = 5
+export const POOL_SIZE = 6
 
 export interface WalletInstance {
   sdk: breezSdk.BreezSdk
@@ -52,7 +52,8 @@ export const initWalletPool = async (mnemonic: string, network: breezSdk.Network
     breezSdk.initLogging(logger)
   }
 
-  for (let i = 0; i < POOL_SIZE; i++) {
+  // Connect all wallets in parallel for faster startup
+  const connectOne = async (i: number): Promise<WalletInstance> => {
     const config = breezSdk.defaultConfig(network)
     config.apiKey = API_KEY
     config.privateEnabledDefault = false
@@ -72,24 +73,31 @@ export const initWalletPool = async (mnemonic: string, network: breezSdk.Network
 
     const addrInfo = await sdk.getLightningAddress().catch(() => undefined)
 
-    walletPool.push({
+    console.log(`Wallet account ${i} connected${addrInfo ? ` (${addrInfo.lightningAddress})` : ''}`)
+
+    return {
       sdk,
       accountNumber: i,
       lightningAddress: addrInfo?.lightningAddress ?? null,
-    })
-
-    console.log(`Wallet account ${i} connected${addrInfo ? ` (${addrInfo.lightningAddress})` : ''}`)
+    }
   }
+
+  const indices = Array.from({ length: POOL_SIZE }, (_, i) => i)
+  const instances = await Promise.all(indices.map(connectOne))
+
+  // Sort by account number to maintain consistent ordering
+  instances.sort((a, b) => a.accountNumber - b.accountNumber)
+  walletPool = instances
 }
 
-// Address rotation: weighted-random favoring least-recently-used
+// Address rotation: weighted-random favoring least-recently-used (excludes primary account 0)
 export const selectAddress = (): { address: string; accountIndex: number } => {
   const addressesWithIndex = walletPool
-    .filter(w => w.lightningAddress !== null)
+    .filter(w => w.lightningAddress !== null && w.accountNumber !== 0)
     .map(w => ({ address: w.lightningAddress!, accountIndex: w.accountNumber }))
 
   if (addressesWithIndex.length === 0) {
-    throw new Error('No Lightning addresses registered in wallet pool')
+    throw new Error('No rotation Lightning addresses registered (accounts 1-5)')
   }
 
   const usage = getAddressUsage()

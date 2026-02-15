@@ -2,7 +2,7 @@
 export interface Merchant {
   id: string
   lightningAddress: string // primary address (account 0), kept for backward compat
-  lightningAddresses: string[] // all rotation addresses, indexed by accountNumber (0-4)
+  lightningAddresses: string[] // all addresses, indexed by accountNumber (0=primary, 1-5=rotation)
   storeName: string
   redirectUrl: string | null
   redirectSecret: string
@@ -24,7 +24,7 @@ export interface Payment {
   createdAt: string
   paidAt: string | null
   expiresAt: string
-  accountIndex?: number // which rotation wallet (0-4) was used
+  accountIndex?: number // which rotation wallet (1-5) was used for receiving
   usedAddress?: string  // the specific Lightning address used
 }
 

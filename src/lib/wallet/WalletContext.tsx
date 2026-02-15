@@ -259,7 +259,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       addresses.push(result.lightningAddress)
     }
 
-    // Accounts 1-4: derived usernames with random suffix
+    // Accounts 1-5: derived usernames with random suffix (rotation addresses)
     for (let i = 1; i < POOL_SIZE; i++) {
       let registered = false
       let attempts = 0
