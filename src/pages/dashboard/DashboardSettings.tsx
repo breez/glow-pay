@@ -156,7 +156,7 @@ export function DashboardSettings() {
                     type="text"
                     value={brandColor}
                     onChange={(e) => setBrandColor(e.target.value)}
-                    placeholder="#f59e0b"
+                    placeholder="#a855f7"
                     maxLength={7}
                     className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors font-mono"
                   />

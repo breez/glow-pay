@@ -74,8 +74,8 @@ export function LandingPage() {
             </p>
           </div>
           <div className="group bg-surface-800/50 border border-white/[0.06] hover:border-white/[0.12] hover:bg-surface-800/80 rounded-2xl p-8 transition-all">
-            <div className="w-12 h-12 rounded-xl bg-lightning/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Zap className="w-6 h-6 text-purple-400" />
+            <div className="w-12 h-12 rounded-xl bg-cyan-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Zap className="w-6 h-6 text-cyan-400" />
             </div>
             <h3 className="text-xl font-bold mb-2">Instant Settlement</h3>
             <p className="text-gray-400">
