@@ -53,6 +53,9 @@ export function migrateMerchant(merchant: Merchant): Merchant {
   if (merchant.brandColor === undefined) {
     merchant.brandColor = null
   }
+  if (merchant.brandBackground === undefined) {
+    merchant.brandBackground = null
+  }
   if (merchant.logoUrl === undefined) {
     merchant.logoUrl = null
   }

@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       paidAt: payment.paidAt,
       verifyUrl: payment.verifyUrl,
       merchant: merchant
-        ? { storeName: merchant.storeName, redirectUrl: merchant.redirectUrl, brandColor: merchant.brandColor || null, logoUrl: merchant.logoUrl || null }
+        ? { storeName: merchant.storeName, redirectUrl: merchant.redirectUrl, brandColor: merchant.brandColor || null, brandBackground: merchant.brandBackground || null, logoUrl: merchant.logoUrl || null }
         : null,
     },
   })

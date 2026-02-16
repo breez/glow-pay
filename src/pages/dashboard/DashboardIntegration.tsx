@@ -162,6 +162,7 @@ export function DashboardIntegration() {
         webhookUrl: m.webhookUrl,
         webhookSecret: m.webhookSecret,
         brandColor: m.brandColor,
+        brandBackground: m.brandBackground,
         logoUrl: m.logoUrl,
       })
     } catch (err) {

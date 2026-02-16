@@ -11,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { merchantId, apiKey, apiKeys, storeName, lightningAddresses, redirectUrl, rotationEnabled, rotationCount, webhookUrl, webhookSecret, brandColor, logoUrl } = req.body ?? {}
+  const { merchantId, apiKey, apiKeys, storeName, lightningAddresses, redirectUrl, rotationEnabled, rotationCount, webhookUrl, webhookSecret, brandColor, brandBackground, logoUrl } = req.body ?? {}
 
   if (!merchantId || (!apiKey && !apiKeys?.length) || !lightningAddresses?.length) {
     return res.status(400).json({ error: 'Missing required fields: merchantId, apiKey/apiKeys, lightningAddresses' })
@@ -41,6 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     webhookUrl: webhookUrl || null,
     webhookSecret: webhookSecret || null,
     brandColor: brandColor || null,
+    brandBackground: brandBackground || null,
     logoUrl: logoUrl || null,
     registeredAt: existing?.registeredAt || new Date().toISOString(),
   }

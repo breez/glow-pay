@@ -10,6 +10,8 @@ export function DashboardSettings() {
   const [rotationCount, setRotationCount] = useState(1)
   const [brandColor, setBrandColor] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
+  const [brandBackground, setBrandBackground] = useState('')
+  const [logoError, setLogoError] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -22,6 +24,7 @@ export function DashboardSettings() {
       setRotationCount(m.rotationCount ?? 1)
       setBrandColor(m.brandColor || '')
       setLogoUrl(m.logoUrl || '')
+      setBrandBackground(m.brandBackground || '')
     }
   }, [])
 
@@ -50,6 +53,7 @@ export function DashboardSettings() {
         webhookUrl: merchant?.webhookUrl ?? null,
         webhookSecret: merchant?.webhookSecret ?? null,
         brandColor: brandColor || null,
+        brandBackground: brandBackground || null,
         logoUrl: logoUrl || null,
         createdAt: merchant?.createdAt || new Date().toISOString(),
       }
@@ -71,6 +75,7 @@ export function DashboardSettings() {
         webhookUrl: updatedMerchant.webhookUrl,
         webhookSecret: updatedMerchant.webhookSecret,
         brandColor: updatedMerchant.brandColor,
+        brandBackground: updatedMerchant.brandBackground,
         logoUrl: updatedMerchant.logoUrl,
       }).catch(err => console.warn('Failed to sync merchant to server:', err))
 
@@ -177,22 +182,58 @@ export function DashboardSettings() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Background Color</label>
+              <div className="flex gap-3 items-center">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={brandBackground}
+                    onChange={(e) => setBrandBackground(e.target.value)}
+                    placeholder="#0a0a0f"
+                    maxLength={7}
+                    className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors font-mono"
+                  />
+                </div>
+                <label
+                  className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0 cursor-pointer overflow-hidden relative"
+                  style={{ backgroundColor: isValidHex(brandBackground) ? brandBackground : '#0a0a0f' }}
+                >
+                  <input
+                    type="color"
+                    value={isValidHex(brandBackground) && brandBackground.length === 7 ? brandBackground : '#0a0a0f'}
+                    onChange={(e) => setBrandBackground(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Background color for the checkout page. Leave empty for default.</p>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">Logo URL</label>
-              <div className="flex gap-3">
+              <div className="flex gap-3 items-center">
                 <input
                   type="url"
                   value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
+                  onChange={(e) => { setLogoUrl(e.target.value); setLogoError(false) }}
                   placeholder="https://example.com/logo.png"
                   className="flex-1 px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors"
                 />
-                {logoUrl && (
+                {logoUrl && !logoError && (
                   <div className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0 overflow-hidden bg-surface-700 flex items-center justify-center">
-                    <img src={logoUrl} alt="" className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                    <img src={logoUrl} alt="" className="w-full h-full object-contain" onError={() => setLogoError(true)} />
+                  </div>
+                )}
+                {logoUrl && logoError && (
+                  <div className="w-12 h-12 rounded-xl border border-red-500/30 flex-shrink-0 bg-red-500/10 flex items-center justify-center">
+                    <span className="text-red-400 text-xs">!</span>
                   </div>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-2">Replaces the Glow Pay logo on the checkout page.</p>
+              <p className="text-xs text-gray-500 mt-2">
+                Replaces the Glow Pay logo on the checkout page.
+                {logoError && <span className="text-red-400 ml-1">Image failed to load.</span>}
+              </p>
             </div>
           </div>
         </div>

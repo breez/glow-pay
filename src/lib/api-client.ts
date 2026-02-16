@@ -12,6 +12,7 @@ export async function syncMerchantToServer(merchant: {
   webhookUrl?: string | null
   webhookSecret?: string | null
   brandColor?: string | null
+  brandBackground?: string | null
   logoUrl?: string | null
 }): Promise<{ success: boolean }> {
   const res = await fetch(`${API_BASE}/merchants`, {
@@ -66,6 +67,7 @@ export async function getPaymentFromApi(paymentId: string): Promise<{
       storeName: string
       redirectUrl: string | null
       brandColor?: string | null
+      brandBackground?: string | null
       logoUrl?: string | null
     } | null
   }

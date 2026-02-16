@@ -33,6 +33,7 @@ export interface ServerMerchant {
   webhookUrl?: string | null
   webhookSecret?: string | null
   brandColor?: string | null
+  brandBackground?: string | null
   logoUrl?: string | null
   registeredAt: string
 }

@@ -23,6 +23,7 @@ interface MerchantData {
   storeName: string
   redirectUrl: string | null
   brandColor?: string | null
+  brandBackground?: string | null
   logoUrl?: string | null
 }
 
@@ -100,7 +101,7 @@ export function CheckoutPage() {
         paidAt: p.paidAt,
         verifyUrl: p.verifyUrl,
       })
-      setMerchant({ storeName: m.storeName, redirectUrl: m.redirectUrl, brandColor: m.brandColor, logoUrl: m.logoUrl })
+      setMerchant({ storeName: m.storeName, redirectUrl: m.redirectUrl, brandColor: m.brandColor, brandBackground: m.brandBackground, logoUrl: m.logoUrl })
 
       if (p.status === 'completed') {
         setState('success')
@@ -235,7 +236,10 @@ export function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen gradient-bg flex items-center justify-center p-6">
+    <div
+      className={`min-h-screen flex items-center justify-center p-6 ${merchant?.brandBackground ? '' : 'gradient-bg'}`}
+      style={merchant?.brandBackground ? { backgroundColor: merchant.brandBackground } : undefined}
+    >
       <div className="bg-surface-800 border border-white/[0.06] rounded-3xl p-8 max-w-md w-full shadow-2xl shadow-black/40">
         {/* Header */}
         <div className="text-center mb-6">
