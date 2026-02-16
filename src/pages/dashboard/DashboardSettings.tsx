@@ -220,7 +220,7 @@ export function DashboardSettings() {
               Privacy & Address Rotation
             </h2>
             <p className="text-gray-400 text-sm mb-4">
-              Incoming payments are distributed across multiple addresses to enhance transaction privacy. A higher count provides stronger privacy but spreads your balance across more wallets.
+              Incoming payments are distributed across multiple addresses to enhance transaction privacy. A higher count provides stronger privacy but spreads your balance across more accounts.
             </p>
 
             <div>

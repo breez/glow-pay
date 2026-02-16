@@ -32,9 +32,7 @@ export function DashboardLayout() {
           </Link>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-3 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-600 px-3 mb-2">Navigation</p>
           <ul className="space-y-1">
             {navItems.map(({ path, icon: Icon, label, exact }) => (
               <li key={path}>

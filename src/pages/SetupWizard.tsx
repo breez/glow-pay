@@ -30,19 +30,13 @@ export function SetupWizard() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [progress, setProgress] = useState('')
 
-  // Redirect to dashboard if already set up
   useEffect(() => {
     const merchant = getMerchant()
-    if (merchant) {
-      navigate('/dashboard')
-    }
+    if (merchant) navigate('/dashboard')
   }, [navigate])
 
-  // Generate mnemonic when entering generate step
   useEffect(() => {
-    if (step === 'generate' && !mnemonic) {
-      setMnemonic(generateMnemonic())
-    }
+    if (step === 'generate' && !mnemonic) setMnemonic(generateMnemonic())
   }, [step, mnemonic, generateMnemonic])
 
   const handleCopy = async () => {
@@ -53,15 +47,13 @@ export function SetupWizard() {
 
   const handleCreateWallet = async () => {
     setCreateError(null)
-    setProgress('Initializing wallet...')
+    setProgress('Initializing account...')
     try {
       await createWallet(mnemonic)
 
-      // Expand to 10 wallets (accounts 0-9)
       setProgress('Setting up payment accounts...')
       await expandWalletPool(10)
 
-      // Register random addresses on all 10 accounts
       setProgress('Generating addresses...')
       const allAddresses: string[] = []
       for (let i = 0; i < 10; i++) {
@@ -73,7 +65,6 @@ export function SetupWizard() {
       setProgress('Finalizing setup...')
       await refreshLightningAddress()
 
-      // Derive deterministic merchant ID from mnemonic
       const merchantId = await deriveMerchantId(mnemonic)
       const initialApiKey = generateApiKey()
       const now = new Date().toISOString()
@@ -111,7 +102,7 @@ export function SetupWizard() {
       setStep('complete')
     } catch (err) {
       setProgress('')
-      setCreateError(err instanceof Error ? err.message : 'Failed to create wallet')
+      setCreateError(err instanceof Error ? err.message : 'Failed to create account')
     }
   }
 
@@ -123,7 +114,7 @@ export function SetupWizard() {
     }
 
     setCreateError(null)
-    setProgress('Connecting wallet...')
+    setProgress('Connecting account...')
     try {
       await restoreWallet(trimmed)
 
@@ -133,16 +124,13 @@ export function SetupWizard() {
       setProgress('Refreshing addresses...')
       await refreshLightningAddress()
 
-      // Derive IDs from mnemonic
       const merchantId = await deriveMerchantId(trimmed)
       const authToken = await deriveAuthToken(trimmed)
 
-      // Try to restore config from server
       setProgress('Restoring account data...')
       const result = await restoreMerchantFromServer(merchantId, authToken)
 
       if (result.success && result.data) {
-        // Restore from server — rebuild Merchant type from server data
         const data = result.data
         const merchant: Merchant = {
           id: data.id,
@@ -169,7 +157,6 @@ export function SetupWizard() {
         }
         saveMerchant(merchant)
       } else {
-        // No server data — create fresh merchant config with this mnemonic's ID
         setProgress('Creating fresh account...')
 
         const allAddresses: string[] = []
@@ -216,37 +203,35 @@ export function SetupWizard() {
       setStep('complete')
     } catch (err) {
       setProgress('')
-      setCreateError(err instanceof Error ? err.message : 'Failed to restore wallet')
+      setCreateError(err instanceof Error ? err.message : 'Failed to restore account')
     }
   }
 
   const words = mnemonic.split(' ')
-
   const stepIndex = step === 'choose' ? 0 : step === 'complete' ? 2 : 1
 
   return (
     <div className="min-h-screen gradient-bg">
       {/* Header */}
       <header className="border-b border-white/[0.06]">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-glow-400 flex items-center justify-center shadow-lg shadow-glow-400/20">
-            <Zap className="w-5 h-5 text-surface-900" />
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-glow-400 flex items-center justify-center shadow-lg shadow-glow-400/20">
+            <Zap className="w-4 h-4 text-surface-900" />
           </div>
-          <span className="text-xl font-bold">Glow Pay</span>
-          <span className="text-gray-500">·</span>
-          <span className="text-gray-400">Setup</span>
+          <span className="text-lg font-bold">Glow Pay</span>
+          <span className="text-gray-600 text-sm ml-1">Setup</span>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 py-12">
-        {/* Progress indicator */}
-        <div className="flex items-center justify-center gap-2 mb-8">
+      <main className="max-w-md mx-auto px-4 py-8">
+        {/* Progress */}
+        <div className="flex items-center justify-center gap-1.5 mb-6">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                i === stepIndex ? 'bg-glow-400 w-8' :
-                i < stepIndex ? 'bg-glow-400/50 w-2' : 'bg-white/20 w-2'
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                i === stepIndex ? 'bg-glow-400 w-6' :
+                i < stepIndex ? 'bg-glow-400/50 w-1.5' : 'bg-white/20 w-1.5'
               }`}
             />
           ))}
@@ -254,57 +239,53 @@ export function SetupWizard() {
 
         {/* Error display */}
         {walletError && (
-          <div className="mb-6 bg-red-500/20 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <div>
+          <div className="mb-4 bg-red-500/20 border border-red-500/30 rounded-xl p-3 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+            <div className="text-sm">
               <p className="text-red-400">{walletError}</p>
-              <button onClick={clearError} className="text-sm text-red-400/70 hover:text-red-400 mt-1">
-                Dismiss
-              </button>
+              <button onClick={clearError} className="text-xs text-red-400/70 hover:text-red-400 mt-1">Dismiss</button>
             </div>
           </div>
         )}
 
-        {/* Step: Choose — new or restore */}
+        {/* Step: Choose */}
         {step === 'choose' && (
           <div>
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-glow-400/20 flex items-center justify-center mx-auto mb-4">
-                <Zap className="w-8 h-8 text-glow-400" />
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 rounded-xl bg-glow-400/20 flex items-center justify-center mx-auto mb-3">
+                <Zap className="w-6 h-6 text-glow-400" />
               </div>
-              <h1 className="text-3xl font-bold mb-2">Welcome to Glow Pay</h1>
-              <p className="text-gray-400">
-                Create a new wallet or restore an existing one.
-              </p>
+              <h1 className="text-2xl font-bold mb-1">Welcome to Glow Pay</h1>
+              <p className="text-sm text-gray-400">Create a new account or restore an existing one.</p>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <button
                 onClick={() => setStep('generate')}
-                className="w-full flex items-center gap-4 p-5 bg-surface-800/60 border border-white/[0.06] rounded-2xl hover:bg-surface-700/60 transition-colors text-left"
+                className="w-full flex items-center gap-3 p-4 bg-surface-800/60 border border-white/[0.06] rounded-xl hover:bg-surface-700/60 transition-colors text-left"
               >
-                <div className="w-12 h-12 rounded-xl bg-glow-400/20 flex items-center justify-center shrink-0">
-                  <Key className="w-6 h-6 text-glow-400" />
+                <div className="w-10 h-10 rounded-lg bg-glow-400/20 flex items-center justify-center shrink-0">
+                  <Key className="w-5 h-5 text-glow-400" />
                 </div>
-                <div>
-                  <p className="font-semibold mb-0.5">Create New Wallet</p>
-                  <p className="text-sm text-gray-400">Generate a new recovery phrase and set up your account.</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Create New Account</p>
+                  <p className="text-xs text-gray-500">Generate a new recovery phrase.</p>
                 </div>
-                <ArrowRight className="w-5 h-5 text-gray-500 shrink-0 ml-auto" />
+                <ArrowRight className="w-4 h-4 text-gray-600 shrink-0" />
               </button>
 
               <button
                 onClick={() => setStep('restore')}
-                className="w-full flex items-center gap-4 p-5 bg-surface-800/60 border border-white/[0.06] rounded-2xl hover:bg-surface-700/60 transition-colors text-left"
+                className="w-full flex items-center gap-3 p-4 bg-surface-800/60 border border-white/[0.06] rounded-xl hover:bg-surface-700/60 transition-colors text-left"
               >
-                <div className="w-12 h-12 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
-                  <RotateCcw className="w-6 h-6 text-blue-400" />
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
+                  <RotateCcw className="w-5 h-5 text-blue-400" />
                 </div>
-                <div>
-                  <p className="font-semibold mb-0.5">Restore Existing Wallet</p>
-                  <p className="text-sm text-gray-400">Use your 12-word recovery phrase to restore your account.</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">Restore Existing Account</p>
+                  <p className="text-xs text-gray-500">Use your 12-word recovery phrase.</p>
                 </div>
-                <ArrowRight className="w-5 h-5 text-gray-500 shrink-0 ml-auto" />
+                <ArrowRight className="w-4 h-4 text-gray-600 shrink-0" />
               </button>
             </div>
           </div>
@@ -313,109 +294,77 @@ export function SetupWizard() {
         {/* Step: Generate Mnemonic */}
         {step === 'generate' && (
           <div>
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-glow-400/20 flex items-center justify-center mx-auto mb-4">
-                <Key className="w-8 h-8 text-glow-400" />
-              </div>
-              <h1 className="text-3xl font-bold mb-2">Save Your Recovery Phrase</h1>
-              <p className="text-gray-400">
-                Write down these 12 words in order and store them securely. This is the only way to recover your wallet.
+            <div className="text-center mb-4">
+              <h1 className="text-xl font-bold mb-1">Save Your Recovery Phrase</h1>
+              <p className="text-sm text-gray-400">
+                Write down these 12 words in order. This is the only way to recover your account.
               </p>
             </div>
 
             {/* Mnemonic grid */}
-            <div className="bg-surface-800/50 border border-white/[0.06] rounded-2xl p-6 mb-6">
-              <div className="grid grid-cols-3 gap-3">
+            <div className="bg-surface-800/50 border border-white/[0.06] rounded-xl p-4 mb-3">
+              <div className="grid grid-cols-3 gap-2">
                 {words.map((word, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 bg-surface-700 rounded-lg px-3 py-2"
-                  >
-                    <span className="text-gray-500 text-sm font-mono tabular-nums w-5 text-right">
-                      {index + 1}.
-                    </span>
-                    <span className="font-mono font-medium">{word}</span>
+                  <div key={index} className="flex items-center gap-1.5 bg-surface-700 rounded-lg px-2.5 py-1.5">
+                    <span className="text-gray-600 text-xs font-mono tabular-nums w-4 text-right">{index + 1}.</span>
+                    <span className="font-mono text-sm font-medium">{word}</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Copy button */}
-            <div className="flex justify-center mb-6">
+            {/* Copy */}
+            <div className="flex justify-center mb-3">
               <button
                 onClick={handleCopy}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                  copied
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'text-glow-400 hover:bg-glow-400/10'
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all ${
+                  copied ? 'bg-green-500/20 text-green-400' : 'text-glow-400 hover:bg-glow-400/10'
                 }`}
               >
-                {copied ? (
-                  <>
-                    <Check className="w-5 h-5" />
-                    <span className="font-medium">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-5 h-5" />
-                    <span className="font-medium">Copy to clipboard</span>
-                  </>
-                )}
+                {copied ? <><Check className="w-4 h-4" /> Copied</> : <><Copy className="w-4 h-4" /> Copy</>}
               </button>
             </div>
 
             {/* Warning */}
-            <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-8">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0">
-                  <Shield className="w-5 h-5 text-red-400" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-red-400 mb-1">Important</h3>
-                  <p className="text-gray-400 text-sm">
-                    Never share your recovery phrase. Anyone with these words can access your funds. Glow Pay cannot recover it for you.
-                  </p>
-                </div>
-              </div>
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-4 flex items-start gap-2.5">
+              <Shield className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-gray-400">
+                <span className="text-red-400 font-semibold">Important:</span> Never share your recovery phrase. Anyone with these words can access your funds.
+              </p>
             </div>
 
-            {/* Confirm checkbox */}
-            <label className="flex items-start gap-3 mb-6 cursor-pointer">
+            {/* Confirm */}
+            <label className="flex items-start gap-2.5 mb-4 cursor-pointer">
               <input
                 type="checkbox"
                 checked={confirmed}
                 onChange={(e) => setConfirmed(e.target.checked)}
-                className="mt-1 w-5 h-5 rounded border-white/20 bg-surface-700 accent-glow-400 focus:ring-glow-400 focus:ring-offset-0"
+                className="mt-0.5 w-4 h-4 rounded border-white/20 bg-surface-700 accent-glow-400"
               />
-              <span className="text-gray-300">
-                I have saved my recovery phrase in a secure location and understand it cannot be recovered if lost.
+              <span className="text-sm text-gray-300">
+                I have saved my recovery phrase securely.
               </span>
             </label>
 
-            {/* Error display */}
             {createError && (
-              <div className="mb-6 bg-red-500/20 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-red-400">{createError}</p>
-                </div>
+              <div className="mb-4 bg-red-500/20 border border-red-500/30 rounded-xl p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-400">{createError}</p>
               </div>
             )}
 
             <button
               onClick={handleCreateWallet}
               disabled={!confirmed || isConnecting}
-              className="w-full flex flex-col items-center justify-center gap-1 px-6 py-4 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-all"
+              className="w-full flex flex-col items-center justify-center gap-0.5 px-4 py-3 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-all text-sm"
             >
               {isConnecting ? (
                 <>
                   <span className="flex items-center gap-2">
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                     Setting up your account...
                   </span>
-                  {progress && (
-                    <span className="text-xs font-medium opacity-70">{progress}</span>
-                  )}
+                  {progress && <span className="text-xs font-medium opacity-70">{progress}</span>}
                 </>
               ) : (
                 <>
@@ -430,64 +379,56 @@ export function SetupWizard() {
         {/* Step: Restore */}
         {step === 'restore' && (
           <div>
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-blue-500/20 flex items-center justify-center mx-auto mb-4">
-                <RotateCcw className="w-8 h-8 text-blue-400" />
-              </div>
-              <h1 className="text-3xl font-bold mb-2">Restore Your Wallet</h1>
-              <p className="text-gray-400">
-                Enter your 12-word recovery phrase to restore your wallet and account settings.
+            <div className="text-center mb-4">
+              <h1 className="text-xl font-bold mb-1">Restore Your Account</h1>
+              <p className="text-sm text-gray-400">
+                Enter your 12-word recovery phrase to restore your account.
               </p>
             </div>
 
-            <div className="mb-6">
+            <div className="mb-4">
               <textarea
                 value={restoreMnemonic}
                 onChange={(e) => setRestoreMnemonic(e.target.value)}
-                placeholder="Enter your 12-word recovery phrase, separated by spaces..."
+                placeholder="Enter your 12-word recovery phrase..."
                 rows={3}
-                className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors font-mono text-sm resize-none"
+                className="w-full px-3 py-2.5 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors font-mono text-sm resize-none"
                 autoFocus
               />
-              <p className="text-xs text-gray-500 mt-2">
-                Your recovery phrase will restore both your wallet and your merchant settings (API keys, branding, webhooks).
+              <p className="text-xs text-gray-600 mt-1.5">
+                Restores your account and all settings (API keys, branding, webhooks).
               </p>
             </div>
 
-            {/* Error display */}
             {createError && (
-              <div className="mb-6 bg-red-500/20 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-red-400">{createError}</p>
-                </div>
+              <div className="mb-4 bg-red-500/20 border border-red-500/30 rounded-xl p-3 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-red-400">{createError}</p>
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={() => { setStep('choose'); setCreateError(null); setRestoreMnemonic('') }}
-                className="px-6 py-4 bg-surface-700 hover:bg-surface-600 text-gray-300 font-semibold rounded-xl transition-colors"
+                className="px-4 py-3 bg-surface-700 hover:bg-surface-600 text-gray-300 font-semibold rounded-xl transition-colors text-sm"
               >
                 Back
               </button>
               <button
                 onClick={handleRestore}
                 disabled={!restoreMnemonic.trim() || isConnecting}
-                className="flex-1 flex flex-col items-center justify-center gap-1 px-6 py-4 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-all"
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 px-4 py-3 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-all text-sm"
               >
                 {isConnecting ? (
                   <>
                     <span className="flex items-center gap-2">
-                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                       Restoring...
                     </span>
-                    {progress && (
-                      <span className="text-xs font-medium opacity-70">{progress}</span>
-                    )}
+                    {progress && <span className="text-xs font-medium opacity-70">{progress}</span>}
                   </>
                 ) : (
-                  'Restore Wallet'
+                  'Restore Account'
                 )}
               </button>
             </div>
@@ -496,21 +437,20 @@ export function SetupWizard() {
 
         {/* Step: Complete */}
         {step === 'complete' && (
-          <div className="text-center">
-            <div className="w-20 h-20 rounded-full bg-glow-400/20 flex items-center justify-center mx-auto mb-6 animate-bounce-in">
-              <Check className="w-10 h-10 text-glow-400" />
+          <div className="text-center pt-4">
+            <div className="w-16 h-16 rounded-full bg-glow-400/20 flex items-center justify-center mx-auto mb-4 animate-bounce-in">
+              <Check className="w-8 h-8 text-glow-400" />
             </div>
-            <h1 className="text-4xl font-bold mb-4">Setup Complete</h1>
-            <p className="text-xl text-gray-400 mb-8 max-w-md mx-auto">
-              Your account is ready. You can now create payment links and start receiving funds.
+            <h1 className="text-2xl font-bold mb-2">You're all set</h1>
+            <p className="text-sm text-gray-400 mb-6 max-w-xs mx-auto">
+              Your account is ready. Create payment links and start receiving funds.
             </p>
-
             <button
               onClick={() => navigate('/dashboard')}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] text-surface-900 font-bold rounded-xl text-lg transition-all glow-box"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] text-surface-900 font-bold rounded-xl transition-all text-sm glow-box"
             >
               Open Dashboard
-              <ArrowRight className="w-5 h-5" />
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         )}

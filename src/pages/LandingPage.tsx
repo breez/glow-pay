@@ -70,7 +70,7 @@ export function LandingPage() {
             </div>
             <h3 className="text-lg font-bold mb-1">Your Keys, Your Funds</h3>
             <p className="text-gray-400 text-sm">
-              Payments settle directly into your wallet. Glow Pay never holds or has access to your funds.
+              Payments settle directly into your account. Glow Pay never holds or has access to your funds.
             </p>
           </div>
           <div className="group bg-surface-800/50 border border-white/[0.06] hover:border-white/[0.12] hover:bg-surface-800/80 rounded-2xl p-6 transition-all">
@@ -103,7 +103,7 @@ export function LandingPage() {
               </div>
               <h3 className="font-bold mb-1">Set Up in Minutes</h3>
               <p className="text-gray-400 text-sm">
-                Create a secure wallet and generate your payment addresses. No accounts, no approvals.
+                Create a secure account and generate your payment addresses. No sign-ups, no approvals.
               </p>
             </div>
             <div className="text-center">
@@ -121,7 +121,7 @@ export function LandingPage() {
               </div>
               <h3 className="font-bold mb-1">Get Paid</h3>
               <p className="text-gray-400 text-sm">
-                Receive payments on your site. Funds arrive directly in your wallet, no middlemen.
+                Receive payments on your site. Funds arrive directly in your account, no middlemen.
               </p>
             </div>
           </div>
