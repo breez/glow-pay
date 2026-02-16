@@ -54,19 +54,6 @@ export function DashboardLayout() {
             ))}
           </ul>
         </nav>
-
-        {/* Create Payment Button */}
-        <div className="px-3 pb-3">
-          <div className="border-t border-white/5 pt-3">
-            <Link
-              to="/dashboard/payments/new"
-              className="flex items-center justify-center gap-2 px-3 py-2.5 bg-glow-400 hover:bg-glow-300 active:bg-glow-500 text-surface-900 font-semibold rounded-xl transition-all text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Payment</span>
-            </Link>
-          </div>
-        </div>
       </aside>
 
       {/* Mobile header */}

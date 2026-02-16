@@ -37,7 +37,7 @@ export function DashboardHome() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight mb-2">Welcome to Glow Pay</h1>
           <p className="text-sm text-gray-400">
-            Set up your account to start accepting Bitcoin Lightning payments.
+            Set up your account to start accepting bitcoin payments.
           </p>
         </div>
 

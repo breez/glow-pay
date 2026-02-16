@@ -27,10 +27,10 @@ export function LandingPage() {
         {/* Hero */}
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-5xl font-bold mb-3">
-            Accept Bitcoin <span className="text-glow-400 glow-text">in Seconds</span>
+            Accept bitcoin <span className="text-glow-400 glow-text">in Seconds</span>
           </h1>
           <p className="text-base text-gray-400 max-w-lg mx-auto mb-5">
-            Instant Lightning payments on your website. No middlemen, no monthly fees, no custody risk.
+            Accept bitcoin payments on your website. Non-custodial, instant settlement, no middlemen.
           </p>
           <Link
             to="/setup"
