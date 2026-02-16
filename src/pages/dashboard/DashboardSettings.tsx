@@ -221,7 +221,7 @@ export function DashboardSettings() {
                 />
                 {logoUrl && !logoError && (
                   <div className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0 overflow-hidden bg-surface-700 flex items-center justify-center">
-                    <img src={logoUrl} alt="" className="w-full h-full object-contain" onError={() => setLogoError(true)} />
+                    <img src={logoUrl} alt="" crossOrigin="anonymous" className="w-full h-full object-contain" onError={() => setLogoError(true)} />
                   </div>
                 )}
                 {logoUrl && logoError && (
@@ -231,8 +231,8 @@ export function DashboardSettings() {
                 )}
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                Replaces the Glow Pay logo on the checkout page.
-                {logoError && <span className="text-red-400 ml-1">Image failed to load.</span>}
+                Replaces the Glow Pay logo on the checkout page. The image must be served with CORS headers.
+                {logoError && <span className="text-red-400 ml-1">Image failed to load — the server may not allow cross-origin requests.</span>}
               </p>
             </div>
           </div>

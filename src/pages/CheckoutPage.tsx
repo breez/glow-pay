@@ -235,6 +235,9 @@ export function CheckoutPage() {
     )
   }
 
+  // Resolve brand color once — everything else references `accent`
+  const accent = merchant?.brandColor || undefined
+
   return (
     <div
       className={`min-h-screen flex items-center justify-center p-6 ${merchant?.brandBackground ? '' : 'gradient-bg'}`}
@@ -245,11 +248,11 @@ export function CheckoutPage() {
         <div className="text-center mb-6">
           <div className="flex items-center justify-center gap-2 mb-4">
             {merchant?.logoUrl ? (
-              <img src={merchant.logoUrl} alt="" className="w-10 h-10 rounded-lg object-contain" />
+              <img src={merchant.logoUrl} alt="" crossOrigin="anonymous" className="w-10 h-10 rounded-lg object-contain" />
             ) : (
               <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-lg ${merchant?.brandColor ? '' : 'bg-glow-400 shadow-glow-400/20'}`}
-                style={merchant?.brandColor ? { backgroundColor: merchant.brandColor, boxShadow: `0 4px 14px ${merchant.brandColor}33` } : undefined}
+                className="w-10 h-10 rounded-lg bg-glow-400 flex items-center justify-center shadow-lg shadow-glow-400/20"
+                style={accent ? { backgroundColor: accent, boxShadow: `0 4px 14px ${accent}33` } : undefined}
               >
                 <Zap className="w-6 h-6 text-surface-900" />
               </div>
@@ -261,8 +264,8 @@ export function CheckoutPage() {
         {/* Amount */}
         <div className="text-center mb-6">
           <p
-            className={`text-4xl font-bold tracking-tight tabular-nums ${merchant?.brandColor ? '' : 'text-glow-400 glow-text'}`}
-            style={merchant?.brandColor ? { color: merchant.brandColor } : undefined}
+            className="text-4xl font-bold tracking-tight tabular-nums text-glow-400 glow-text"
+            style={accent ? { color: accent, textShadow: `0 0 16px ${accent}66, 0 0 32px ${accent}26` } : undefined}
           >
             {formatSats(payment?.amountSats || 0)} sats
           </p>
