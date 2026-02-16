@@ -181,7 +181,6 @@ export function DashboardIntegration() {
   }
 
   const activeKeys = merchant.apiKeys.filter(k => k.active)
-  const revokedKeys = merchant.apiKeys.filter(k => !k.active)
   const displayKey = activeKeys[0]?.key || merchant.apiKey
   const origin = window.location.origin
 
@@ -275,25 +274,6 @@ export function DashboardIntegration() {
             ))}
           </div>
 
-          {/* Revoked keys */}
-          {revokedKeys.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-white/5">
-              <p className="text-xs text-gray-500 mb-2">Revoked keys</p>
-              <div className="space-y-2">
-                {revokedKeys.map((apiKey) => (
-                  <div key={apiKey.key} className="flex items-center gap-3 p-2 opacity-50">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">{apiKey.label}</span>
-                        <span className="status-badge bg-red-500/20 text-red-400">Revoked</span>
-                      </div>
-                      <code className="text-xs text-gray-600 font-mono block truncate">{apiKey.key}</code>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Redirect & Webhooks */}
