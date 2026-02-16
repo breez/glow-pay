@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Zap, Copy, Check, ArrowRight, ArrowLeft, Shield, Key, Loader2, AlertCircle } from 'lucide-react'
+import { Zap, Copy, Check, ArrowRight, Shield, Key, Loader2, AlertCircle } from 'lucide-react'
 import { useWallet } from '@/lib/wallet/WalletContext'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
 import { registerRandomAddressForAccount, expandWalletPool } from '@/lib/wallet/walletService'
 import type { Merchant } from '@/lib/types'
 
-type Step = 'welcome' | 'generate' | 'complete'
+type Step = 'generate' | 'complete'
 
 export function SetupWizard() {
   const navigate = useNavigate()
@@ -20,7 +20,7 @@ export function SetupWizard() {
     clearError,
   } = useWallet()
 
-  const [step, setStep] = useState<Step>('welcome')
+  const [step, setStep] = useState<Step>('generate')
   const [mnemonic, setMnemonic] = useState('')
   const [copied, setCopied] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
@@ -129,13 +129,13 @@ export function SetupWizard() {
 
       <main className="max-w-2xl mx-auto px-6 py-12">
         {/* Progress indicator */}
-        <div className="flex items-center justify-center gap-2 mb-12">
-          {['welcome', 'generate', 'complete'].map((s, i) => (
+        <div className="flex items-center justify-center gap-2 mb-8">
+          {['generate', 'complete'].map((s, i) => (
             <div
               key={s}
               className={`h-2 rounded-full transition-all duration-300 ${
                 s === step ? 'bg-glow-400 w-8' :
-                ['welcome', 'generate', 'complete'].indexOf(step) > i
+                ['generate', 'complete'].indexOf(step) > i
                   ? 'bg-glow-400/50 w-2' : 'bg-white/20 w-2'
               }`}
             />
@@ -155,66 +155,16 @@ export function SetupWizard() {
           </div>
         )}
 
-        {/* Step: Welcome */}
-        {step === 'welcome' && (
-          <div className="text-center">
-            <div className="w-20 h-20 rounded-2xl bg-glow-400/20 flex items-center justify-center mx-auto mb-6">
-              <Zap className="w-10 h-10 text-glow-400" />
-            </div>
-            <h1 className="text-4xl font-bold mb-4">Welcome to Glow Pay</h1>
-            <p className="text-xl text-gray-400 mb-8 max-w-md mx-auto">
-              You're a few steps away from accepting Bitcoin payments. This takes about two minutes.
-            </p>
-
-            <div className="grid gap-4 max-w-sm mx-auto mb-8">
-              <div className="flex items-center gap-4 text-left bg-surface-800/50 rounded-xl p-4">
-                <div className="w-10 h-10 rounded-lg bg-glow-400/20 flex items-center justify-center flex-shrink-0">
-                  <Key className="w-5 h-5 text-glow-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Save Recovery Phrase</h3>
-                  <p className="text-sm text-gray-400">Your only backup to recover funds</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-left bg-surface-800/50 rounded-xl p-4">
-                <div className="w-10 h-10 rounded-lg bg-glow-400/20 flex items-center justify-center flex-shrink-0">
-                  <Shield className="w-5 h-5 text-glow-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Start Accepting Payments</h3>
-                  <p className="text-sm text-gray-400">Funds go directly to your wallet</p>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setStep('generate')}
-              className="inline-flex items-center gap-2 px-8 py-4 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] text-surface-900 font-bold rounded-xl text-lg transition-all glow-box"
-            >
-              Get Started
-              <ArrowRight className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-
         {/* Step: Generate Mnemonic */}
         {step === 'generate' && (
           <div>
-            <button
-              onClick={() => setStep('welcome')}
-              className="flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back
-            </button>
-
-            <div className="text-center mb-8">
+            <div className="text-center mb-6">
               <div className="w-16 h-16 rounded-2xl bg-glow-400/20 flex items-center justify-center mx-auto mb-4">
                 <Key className="w-8 h-8 text-glow-400" />
               </div>
-              <h1 className="text-3xl font-bold mb-2">Your Recovery Phrase</h1>
+              <h1 className="text-3xl font-bold mb-2">Save Your Recovery Phrase</h1>
               <p className="text-gray-400">
-                Write down these 12 words in order and store them securely. This phrase is the only way to recover your account.
+                Write down these 12 words in order and store them securely. This is the only way to recover your wallet.
               </p>
             </div>
 

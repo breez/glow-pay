@@ -1,10 +1,9 @@
 import { Link, Outlet, useLocation } from 'react-router-dom'
-import { Zap, Home, Settings, Plus, Code } from 'lucide-react'
+import { Zap, Home, Settings, Plus } from 'lucide-react'
 
 const navItems = [
   { path: '/dashboard', icon: Home, label: 'Home', exact: true },
   { path: '/dashboard/payments', icon: Zap, label: 'Payments' },
-  { path: '/dashboard/integration', icon: Code, label: 'API' },
   { path: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ]
 

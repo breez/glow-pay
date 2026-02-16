@@ -8,7 +8,6 @@ import { DashboardHome } from './pages/dashboard/DashboardHome'
 import { DashboardPayments } from './pages/dashboard/DashboardPayments'
 import { DashboardSettings } from './pages/dashboard/DashboardSettings'
 import { DashboardCreatePayment } from './pages/dashboard/DashboardCreatePayment'
-import { DashboardIntegration } from './pages/dashboard/DashboardIntegration'
 
 function App() {
   return (
@@ -25,7 +24,6 @@ function App() {
             <Route index element={<DashboardHome />} />
             <Route path="payments" element={<DashboardPayments />} />
             <Route path="payments/new" element={<DashboardCreatePayment />} />
-            <Route path="integration" element={<DashboardIntegration />} />
             <Route path="settings" element={<DashboardSettings />} />
           </Route>
         </Routes>
