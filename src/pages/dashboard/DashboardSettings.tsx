@@ -150,7 +150,7 @@ export function DashboardSettings() {
 
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">Brand Color</label>
-              <div className="flex gap-3">
+              <div className="flex gap-3 items-center">
                 <div className="relative flex-1">
                   <input
                     type="text"
@@ -161,10 +161,17 @@ export function DashboardSettings() {
                     className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors font-mono"
                   />
                 </div>
-                <div
-                  className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0"
+                <label
+                  className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0 cursor-pointer overflow-hidden relative"
                   style={{ backgroundColor: isValidHex(brandColor) ? brandColor : '#333' }}
-                />
+                >
+                  <input
+                    type="color"
+                    value={isValidHex(brandColor) ? brandColor : '#a855f7'}
+                    onChange={(e) => setBrandColor(e.target.value)}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  />
+                </label>
               </div>
               <p className="text-xs text-gray-500 mt-2">Hex color for buttons and accents on the checkout page. Leave empty for default.</p>
             </div>
