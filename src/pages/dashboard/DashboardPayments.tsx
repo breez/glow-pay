@@ -110,7 +110,7 @@ export function DashboardPayments() {
         </div>
         <Link
           to="/dashboard/payments/new"
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-glow-400 hover:bg-glow-300 active:bg-glow-500 text-surface-900 font-semibold rounded-xl transition-all text-sm"
+          className="hidden md:inline-flex items-center gap-2 px-4 py-2.5 bg-glow-400 hover:bg-glow-300 active:bg-glow-500 text-surface-900 font-semibold rounded-xl transition-all text-sm"
         >
           <Plus className="w-4 h-4" />
           New Payment
