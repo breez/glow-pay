@@ -25,6 +25,7 @@ export function SetupWizard() {
   const [copied, setCopied] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [progress, setProgress] = useState('')
 
   // Redirect to dashboard if already set up
   useEffect(() => {
@@ -49,19 +50,24 @@ export function SetupWizard() {
 
   const handleCreateWallet = async () => {
     setCreateError(null)
+    setProgress('Initializing wallet...')
     try {
       await createWallet(mnemonic)
 
       // Expand to 10 wallets (accounts 0-9)
+      setProgress('Setting up payment accounts...')
       await expandWalletPool(10)
 
       // Register random addresses on all 10 accounts
+      setProgress('Generating addresses...')
       const allAddresses: string[] = []
       for (let i = 0; i < 10; i++) {
         const addr = await registerRandomAddressForAccount(i)
         allAddresses.push(addr)
+        setProgress(`Generating addresses... (${i + 1}/10)`)
       }
 
+      setProgress('Finalizing setup...')
       await refreshLightningAddress()
 
       // Save merchant with all addresses, rotationCount=1 by default
@@ -100,6 +106,7 @@ export function SetupWizard() {
 
       setStep('complete')
     } catch (err) {
+      setProgress('')
       setCreateError(err instanceof Error ? err.message : 'Failed to create wallet')
     }
   }
@@ -253,13 +260,13 @@ export function SetupWizard() {
             </div>
 
             {/* Warning */}
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-8">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-8">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-                  <Shield className="w-5 h-5 text-amber-400" />
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                  <Shield className="w-5 h-5 text-red-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-amber-400 mb-1">Important</h3>
+                  <h3 className="font-bold text-red-400 mb-1">Important</h3>
                   <p className="text-gray-400 text-sm">
                     Never share your recovery phrase. Anyone with these words can access your funds. Glow Pay cannot recover it for you.
                   </p>
@@ -293,17 +300,22 @@ export function SetupWizard() {
             <button
               onClick={handleCreateWallet}
               disabled={!confirmed || isConnecting}
-              className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-all"
+              className="w-full flex flex-col items-center justify-center gap-1 px-6 py-4 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-all"
             >
               {isConnecting ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Creating Wallet...
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Setting up your account...
+                  </span>
+                  {progress && (
+                    <span className="text-xs font-medium opacity-70">{progress}</span>
+                  )}
                 </>
               ) : (
                 <>
-                  Create Wallet
-                  <ArrowRight className="w-5 h-5" />
+                  Continue
+                  <span className="text-xs font-medium opacity-70">This may take a moment</span>
                 </>
               )}
             </button>
