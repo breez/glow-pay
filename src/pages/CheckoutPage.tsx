@@ -243,18 +243,18 @@ export function CheckoutPage() {
       className={`min-h-screen flex items-center justify-center p-6 ${merchant?.brandBackground ? '' : 'gradient-bg'}`}
       style={merchant?.brandBackground ? { backgroundColor: merchant.brandBackground } : undefined}
     >
-      <div className="bg-surface-800 border border-white/[0.06] rounded-3xl p-8 max-w-md w-full shadow-2xl shadow-black/40">
+      <div className="bg-surface-800 border border-white/[0.06] rounded-3xl p-6 max-w-md w-full shadow-2xl shadow-black/40">
         {/* Header */}
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center gap-2 mb-4">
+        <div className="text-center mb-4">
+          <div className="flex items-center justify-center gap-2 mb-3">
             {merchant?.logoUrl ? (
-              <img src={merchant.logoUrl} alt="" crossOrigin="anonymous" className="w-10 h-10 rounded-lg object-contain" />
+              <img src={merchant.logoUrl} alt="" crossOrigin="anonymous" className="w-9 h-9 rounded-lg object-contain" />
             ) : (
               <div
-                className="w-10 h-10 rounded-lg bg-glow-400 flex items-center justify-center shadow-lg shadow-glow-400/20"
+                className="w-9 h-9 rounded-lg bg-glow-400 flex items-center justify-center shadow-lg shadow-glow-400/20"
                 style={accent ? { backgroundColor: accent, boxShadow: `0 4px 14px ${accent}33` } : undefined}
               >
-                <Zap className="w-6 h-6 text-surface-900" />
+                <Zap className="w-5 h-5 text-surface-900" />
               </div>
             )}
             <span className="text-lg font-bold">{merchant?.storeName || 'Glow Pay'}</span>
@@ -262,15 +262,15 @@ export function CheckoutPage() {
         </div>
 
         {/* Amount */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-4">
           <p
-            className="text-4xl font-bold tracking-tight tabular-nums text-glow-400 glow-text"
+            className="text-3xl font-bold tracking-tight tabular-nums text-glow-400 glow-text"
             style={accent ? { color: accent, textShadow: `0 0 16px ${accent}66, 0 0 32px ${accent}26` } : undefined}
           >
             {formatSats(payment?.amountSats || 0)} sats
           </p>
           {payment?.description && (
-            <p className="text-sm text-gray-400 mt-2">{payment.description}</p>
+            <p className="text-sm text-gray-400 mt-1">{payment.description}</p>
           )}
         </div>
 
@@ -278,10 +278,10 @@ export function CheckoutPage() {
         {state === 'waiting' && payment?.invoice && (
           <>
             {/* QR Code */}
-            <div className="qr-container mx-auto w-fit mb-6 glow-bitcoin ring-1 ring-white/10">
+            <div className="qr-container mx-auto w-fit mb-4 glow-bitcoin ring-1 ring-white/10">
               <QRCodeSVG
                 value={payment.invoice.toUpperCase()}
-                size={240}
+                size={200}
                 level="M"
                 bgColor="white"
                 fgColor="#0a0a0f"
@@ -289,15 +289,15 @@ export function CheckoutPage() {
             </div>
 
             {/* Timer */}
-            <div className={`flex items-center justify-center gap-2 mb-4 ${timeLeft < 60 ? 'text-orange-400' : 'text-gray-400'}`}>
-              <Clock className="w-4 h-4" />
-              <span>This invoice expires in {formatTime(timeLeft)}</span>
+            <div className={`flex items-center justify-center gap-2 mb-3 text-sm ${timeLeft < 60 ? 'text-orange-400' : 'text-gray-400'}`}>
+              <Clock className="w-3.5 h-3.5" />
+              <span>Expires in {formatTime(timeLeft)}</span>
             </div>
 
             {/* Copy button */}
             <button
               onClick={copyInvoice}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-surface-700 hover:bg-surface-600 border border-white/[0.06] rounded-xl transition-colors mb-4"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-surface-700 hover:bg-surface-600 border border-white/[0.06] rounded-xl transition-colors mb-3 text-sm"
             >
               {copied ? (
                 <>
@@ -317,10 +317,10 @@ export function CheckoutPage() {
 
         {state === 'success' && (
           <div className="text-center">
-            <div className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4 animate-bounce-in">
-              <CheckCircle2 className="w-10 h-10 text-green-500" />
+            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-3 animate-bounce-in">
+              <CheckCircle2 className="w-8 h-8 text-green-500" />
             </div>
-            <h2 className="text-2xl font-bold text-green-400 mb-2">Payment Confirmed</h2>
+            <h2 className="text-xl font-bold text-green-400 mb-2">Payment Confirmed</h2>
             <p className="text-gray-400">
               {merchant?.redirectUrl
                 ? 'Returning you to the merchant...'
@@ -331,10 +331,10 @@ export function CheckoutPage() {
 
         {state === 'expired' && (
           <div className="text-center">
-            <div className="w-20 h-20 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
-              <Clock className="w-10 h-10 text-orange-500" />
+            <div className="w-16 h-16 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto mb-3">
+              <Clock className="w-8 h-8 text-orange-500" />
             </div>
-            <h2 className="text-2xl font-bold text-orange-400 mb-2">This Payment Has Expired</h2>
+            <h2 className="text-xl font-bold text-orange-400 mb-2">Payment Expired</h2>
             <p className="text-gray-400">
               The time limit for this payment has passed. Please contact the merchant for a new payment link.
             </p>
@@ -342,7 +342,7 @@ export function CheckoutPage() {
         )}
 
         {/* Footer */}
-        <div className="mt-8 pt-6 border-t border-white/[0.06] text-center">
+        <div className="mt-5 pt-4 border-t border-white/[0.06] text-center">
           <p className="text-xs text-gray-500">
             Powered by Breez SDK
           </p>

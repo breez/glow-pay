@@ -70,8 +70,8 @@ body {
 /* QR code container */
 .qr-container {
   background: white;
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 12px;
+  padding: 12px;
 }
 
 /* Status badges */

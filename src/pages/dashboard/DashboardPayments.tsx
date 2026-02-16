@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, ExternalLink, Copy, Check, CheckCircle, RefreshCw, Loader2, CreditCard } from 'lucide-react'
+import { Plus, ExternalLink, Copy, Check, CheckCircle, RefreshCw, Loader2, Zap } from 'lucide-react'
 import { getPayments, getMerchant, updatePaymentStatus } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
 import { getPaymentFromApi } from '@/lib/api-client'
@@ -133,7 +133,7 @@ export function DashboardPayments() {
 
       {payments.length === 0 ? (
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-12 text-center">
-          <CreditCard className="w-12 h-12 text-gray-700 mx-auto mb-3" />
+          <Zap className="w-12 h-12 text-gray-700 mx-auto mb-3" />
           <p className="text-sm text-gray-500 mb-4">No payment requests yet</p>
           <Link
             to="/dashboard/payments/new"

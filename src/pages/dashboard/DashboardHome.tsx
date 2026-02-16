@@ -72,18 +72,18 @@ export function DashboardHome() {
       {merchant.storeName && (
         <p className="text-sm text-gray-400 mb-6">{merchant.storeName}</p>
       )}
-      {!merchant.storeName && <div className="mb-6" />}
+      {!merchant.storeName && <div className="mb-4" />}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <div className="bg-gradient-to-br from-glow-400/[0.06] to-transparent bg-surface-800/60 border border-white/[0.06] rounded-2xl p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-glow-400/20 flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-glow-400" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-gradient-to-br from-glow-400/[0.06] to-transparent bg-surface-800/60 border border-white/[0.06] rounded-2xl p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-glow-400/20 flex items-center justify-center">
+              <Wallet className="w-4 h-4 text-glow-400" />
             </div>
             <span className="text-sm text-gray-400">Wallet Balance</span>
           </div>
-          <p className="text-3xl font-bold tabular-nums">
+          <p className="text-2xl font-bold tabular-nums">
             {formatSats(aggregateBalance?.totalBalanceSats ?? 0)} <span className="text-base font-normal text-gray-500">sats</span>
           </p>
           {aggregateBalance && aggregateBalance.perWallet.length > 1 && (
@@ -106,30 +106,30 @@ export function DashboardHome() {
           )}
         </div>
 
-        <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-green-400" />
+        <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-green-500/20 flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-green-400" />
             </div>
             <span className="text-sm text-gray-400">Settled</span>
           </div>
-          <p className="text-3xl font-bold tabular-nums">{completedPayments.length} <span className="text-base font-normal text-gray-500">payments</span></p>
+          <p className="text-2xl font-bold tabular-nums">{completedPayments.length} <span className="text-sm font-normal text-gray-500">payments</span></p>
         </div>
 
-        <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-              <Receipt className="w-5 h-5 text-blue-400" />
+        <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/20 flex items-center justify-center">
+              <Receipt className="w-4 h-4 text-blue-400" />
             </div>
             <span className="text-sm text-gray-400">Total Requests</span>
           </div>
-          <p className="text-3xl font-bold tabular-nums">{payments.length} <span className="text-base font-normal text-gray-500">payments</span></p>
+          <p className="text-2xl font-bold tabular-nums">{payments.length} <span className="text-sm font-normal text-gray-500">payments</span></p>
         </div>
       </div>
 
       {/* Recent payments */}
       <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl">
-        <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between">
           <h2 className="text-base font-semibold">Recent Payments</h2>
           <Link
             to="/dashboard/payments"
@@ -141,8 +141,8 @@ export function DashboardHome() {
         </div>
 
         {recentPayments.length === 0 ? (
-          <div className="p-12 text-center">
-            <Receipt className="w-12 h-12 text-gray-700 mx-auto mb-3" />
+          <div className="p-8 text-center">
+            <Receipt className="w-10 h-10 text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-gray-500 mb-4">No activity yet</p>
             <Link
               to="/dashboard/payments/new"
@@ -155,7 +155,7 @@ export function DashboardHome() {
         ) : (
           <div className="divide-y divide-white/5">
             {recentPayments.map((payment) => (
-              <div key={payment.id} className="px-6 py-4 flex items-center justify-between hover:bg-surface-700/30 transition-colors duration-150">
+              <div key={payment.id} className="px-5 py-3 flex items-center justify-between hover:bg-surface-700/30 transition-colors duration-150">
                 <div>
                   <p className="text-sm font-medium">{payment.description || 'Payment'}</p>
                   <p className="text-xs text-gray-500">
