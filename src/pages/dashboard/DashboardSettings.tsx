@@ -113,113 +113,100 @@ export function DashboardSettings() {
             tab === 'privacy' ? 'bg-glow-400/15 text-glow-400' : 'text-gray-400 hover:text-white'
           }`}
         >
-          Privacy
+          Address Rotation
         </button>
       </div>
 
       <div className="space-y-6">
         {/* Branding tab */}
         {tab === 'branding' && (
-          <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
-            <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
-              <Palette className="w-5 h-5 text-glow-400" />
-              Checkout Branding
-            </h2>
-
-            <div className="space-y-4">
+          <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-5">
+            <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Checkout Display Name</label>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Display Name</label>
                 <input
                   type="text"
                   value={storeName}
                   onChange={(e) => setStoreName(e.target.value)}
                   placeholder="e.g. Acme Electronics"
-                  className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors"
+                  className="w-full px-3 py-2 bg-surface-700 border border-white/[0.06] rounded-lg text-sm focus:outline-none focus:border-glow-400 transition-colors"
                 />
-                <p className="text-xs text-gray-500 mt-2">Shown to customers on the payment page.</p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Brand Color</label>
-                <div className="flex gap-3 items-center">
-                  <div className="relative flex-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Brand Color</label>
+                  <div className="flex gap-2 items-center">
                     <input
                       type="text"
                       value={brandColor}
                       onChange={(e) => setBrandColor(e.target.value)}
                       placeholder="#a855f7"
                       maxLength={7}
-                      className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors font-mono"
+                      className="flex-1 min-w-0 px-3 py-2 bg-surface-700 border border-white/[0.06] rounded-lg text-sm focus:outline-none focus:border-glow-400 transition-colors font-mono"
                     />
+                    <label
+                      className="w-9 h-9 rounded-lg border border-white/[0.06] flex-shrink-0 cursor-pointer overflow-hidden relative"
+                      style={{ backgroundColor: isValidHex(brandColor) ? brandColor : '#a855f7' }}
+                    >
+                      <input
+                        type="color"
+                        value={isValidHex(brandColor) && brandColor.length === 7 ? brandColor : '#a855f7'}
+                        onChange={(e) => setBrandColor(e.target.value)}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      />
+                    </label>
                   </div>
-                  <label
-                    className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0 cursor-pointer overflow-hidden relative"
-                    style={{ backgroundColor: isValidHex(brandColor) ? brandColor : '#a855f7' }}
-                  >
-                    <input
-                      type="color"
-                      value={isValidHex(brandColor) && brandColor.length === 7 ? brandColor : '#a855f7'}
-                      onChange={(e) => setBrandColor(e.target.value)}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    />
-                  </label>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Hex color for accents on the checkout page. Leave empty for default.</p>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Background Color</label>
-                <div className="flex gap-3 items-center">
-                  <div className="relative flex-1">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Background Color</label>
+                  <div className="flex gap-2 items-center">
                     <input
                       type="text"
                       value={brandBackground}
                       onChange={(e) => setBrandBackground(e.target.value)}
                       placeholder="#0a0a0f"
                       maxLength={7}
-                      className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors font-mono"
+                      className="flex-1 min-w-0 px-3 py-2 bg-surface-700 border border-white/[0.06] rounded-lg text-sm focus:outline-none focus:border-glow-400 transition-colors font-mono"
                     />
+                    <label
+                      className="w-9 h-9 rounded-lg border border-white/[0.06] flex-shrink-0 cursor-pointer overflow-hidden relative"
+                      style={{ backgroundColor: isValidHex(brandBackground) ? brandBackground : '#0a0a0f' }}
+                    >
+                      <input
+                        type="color"
+                        value={isValidHex(brandBackground) && brandBackground.length === 7 ? brandBackground : '#0a0a0f'}
+                        onChange={(e) => setBrandBackground(e.target.value)}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      />
+                    </label>
                   </div>
-                  <label
-                    className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0 cursor-pointer overflow-hidden relative"
-                    style={{ backgroundColor: isValidHex(brandBackground) ? brandBackground : '#0a0a0f' }}
-                  >
-                    <input
-                      type="color"
-                      value={isValidHex(brandBackground) && brandBackground.length === 7 ? brandBackground : '#0a0a0f'}
-                      onChange={(e) => setBrandBackground(e.target.value)}
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    />
-                  </label>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Background color for the checkout page. Leave empty for default.</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Logo URL</label>
-                <div className="flex gap-3 items-center">
+                <label className="block text-sm font-medium text-gray-400 mb-1">Logo URL</label>
+                <div className="flex gap-2 items-center">
                   <input
                     type="url"
                     value={logoUrl}
                     onChange={(e) => { setLogoUrl(e.target.value); setLogoError(false) }}
                     placeholder="https://example.com/logo.png"
-                    className="flex-1 px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors"
+                    className="flex-1 px-3 py-2 bg-surface-700 border border-white/[0.06] rounded-lg text-sm focus:outline-none focus:border-glow-400 transition-colors"
                   />
                   {logoUrl && !logoError && (
-                    <div className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0 overflow-hidden bg-surface-700 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-lg border border-white/[0.06] flex-shrink-0 overflow-hidden bg-surface-700 flex items-center justify-center">
                       <img src={logoUrl} alt="" crossOrigin="anonymous" className="w-full h-full object-contain" onError={() => setLogoError(true)} />
                     </div>
                   )}
                   {logoUrl && logoError && (
-                    <div className="w-12 h-12 rounded-xl border border-red-500/30 flex-shrink-0 bg-red-500/10 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-lg border border-red-500/30 flex-shrink-0 bg-red-500/10 flex items-center justify-center">
                       <span className="text-red-400 text-xs">!</span>
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Replaces the Glow Pay logo on the checkout page. The image must be served with CORS headers.
-                  {logoError && <span className="text-red-400 ml-1">Image failed to load — the server may not allow cross-origin requests.</span>}
-                </p>
+                {logoError && <p className="text-xs text-red-400 mt-1">Image failed to load — the server may not allow cross-origin requests.</p>}
               </div>
             </div>
           </div>
@@ -281,16 +268,16 @@ export function DashboardSettings() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-glow-400 hover:bg-glow-300 active:bg-glow-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-glow-400 hover:bg-glow-300 active:bg-glow-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-colors text-sm"
         >
           {saving ? (
             <>
-              <RefreshCw className="w-5 h-5 animate-spin" />
+              <RefreshCw className="w-4 h-4 animate-spin" />
               Saving...
             </>
           ) : (
             <>
-              <Save className="w-5 h-5" />
+              <Save className="w-4 h-4" />
               Save Changes
             </>
           )}

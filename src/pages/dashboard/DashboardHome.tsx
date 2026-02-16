@@ -128,49 +128,61 @@ export function DashboardHome() {
       </div>
 
       {/* Recent payments */}
-      <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl">
-        <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between">
-          <h2 className="text-base font-semibold">Recent Payments</h2>
+      <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-300">Recent Activity</h2>
           <Link
             to="/dashboard/payments"
-            className="text-glow-400 hover:text-glow-300 text-sm flex items-center gap-1 transition-colors"
+            className="text-glow-400 hover:text-glow-300 text-xs flex items-center gap-1 transition-colors"
           >
             View all
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         {recentPayments.length === 0 ? (
-          <div className="p-8 text-center">
-            <Receipt className="w-10 h-10 text-gray-700 mx-auto mb-3" />
-            <p className="text-sm text-gray-500 mb-4">No activity yet</p>
+          <div className="p-6 text-center">
+            <Receipt className="w-8 h-8 text-gray-700 mx-auto mb-2" />
+            <p className="text-sm text-gray-500 mb-3">No activity yet</p>
             <Link
               to="/dashboard/payments/new"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-glow-400 hover:bg-glow-300 text-surface-900 font-semibold rounded-xl text-sm transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-glow-400 hover:bg-glow-300 text-surface-900 font-semibold rounded-lg text-sm transition-colors"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
               Create Payment
             </Link>
           </div>
         ) : (
-          <div className="divide-y divide-white/5">
-            {recentPayments.map((payment) => (
-              <div key={payment.id} className="px-5 py-3 flex items-center justify-between hover:bg-surface-700/30 transition-colors duration-150">
-                <div>
-                  <p className="text-sm font-medium">{payment.description || 'Payment'}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(payment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                  </p>
+          <div>
+            {recentPayments.map((payment, i) => (
+              <div
+                key={payment.id}
+                className={`px-4 py-2.5 flex items-center justify-between hover:bg-surface-700/30 transition-colors duration-150 ${
+                  i > 0 ? 'border-t border-white/[0.03]' : ''
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${
+                    payment.status === 'completed' ? 'bg-green-400' :
+                    payment.status === 'expired' ? 'bg-red-400' :
+                    'bg-orange-400'
+                  }`} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{payment.description || 'Payment'}</p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(payment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold tabular-nums">{formatSats(payment.amountSats)} sats</p>
-                  <span className={`status-badge mt-1 ${
-                    payment.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                    payment.status === 'expired' ? 'bg-red-500/20 text-red-400' :
-                    'bg-orange-500/20 text-orange-400'
+                <div className="text-right shrink-0 ml-3">
+                  <p className="text-sm font-bold tabular-nums">{formatSats(payment.amountSats)} <span className="text-xs font-normal text-gray-500">sats</span></p>
+                  <p className={`text-[10px] font-medium uppercase tracking-wide ${
+                    payment.status === 'completed' ? 'text-green-400' :
+                    payment.status === 'expired' ? 'text-red-400' :
+                    'text-orange-400'
                   }`}>
                     {statusLabel(payment.status)}
-                  </span>
+                  </p>
                 </div>
               </div>
             ))}

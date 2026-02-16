@@ -51,7 +51,7 @@ function CodeTabs({ curl, js, response, copyId, copiedKey, onCopy }: {
   )
 }
 
-type PageTab = 'keys' | 'reference'
+type PageTab = 'keys' | 'webhooks' | 'reference'
 
 export function DashboardIntegration() {
   const [pageTab, setPageTab] = useState<PageTab>('keys')
@@ -194,29 +194,27 @@ export function DashboardIntegration() {
       <p className="text-sm text-gray-400 mb-4">Manage API keys, webhooks, and integrate Glow Pay with your application.</p>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-surface-800/60 border border-white/[0.06] rounded-xl p-1 w-fit">
-        <button
-          onClick={() => setPageTab('keys')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            pageTab === 'keys' ? 'bg-glow-400/15 text-glow-400' : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          Keys & Webhooks
-        </button>
-        <button
-          onClick={() => setPageTab('reference')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            pageTab === 'reference' ? 'bg-glow-400/15 text-glow-400' : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          API Reference
-        </button>
+      <div className="flex gap-1 mb-6 bg-surface-800/60 border border-white/[0.06] rounded-xl p-1 w-fit overflow-x-auto">
+        {([
+          { key: 'keys' as const, label: 'API Keys' },
+          { key: 'webhooks' as const, label: 'Redirect & Webhook' },
+          { key: 'reference' as const, label: 'API Reference' },
+        ]).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setPageTab(key)}
+            className={`px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium transition-colors whitespace-nowrap ${
+              pageTab === key ? 'bg-glow-400/15 text-glow-400' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="space-y-6">
-        {/* Keys & Webhooks tab */}
-        {pageTab === 'keys' && (<>
-        {/* API Keys */}
+        {/* API Keys tab */}
+        {pageTab === 'keys' && (
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold flex items-center gap-2">
@@ -268,45 +266,49 @@ export function DashboardIntegration() {
           {/* Active keys */}
           <div className="space-y-3">
             {activeKeys.map((apiKey) => (
-              <div key={apiKey.key} className="flex items-center gap-3 p-3 bg-surface-900 rounded-xl hover:bg-surface-800/80 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+              <div key={apiKey.key} className="p-3 bg-surface-900 rounded-xl hover:bg-surface-800/80 transition-colors">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{apiKey.label}</span>
                     <span className="status-badge bg-green-500/20 text-green-400">Active</span>
                   </div>
-                  <code className="text-xs text-gray-400 font-mono block truncate">{apiKey.key}</code>
-                  <span className="text-xs text-gray-600">Created {new Date(apiKey.createdAt).toLocaleDateString()}</span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => copyToClipboard(apiKey.key, apiKey.key)}
+                      className="p-1.5 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors"
+                      title="Copy key"
+                    >
+                      {copiedKey === apiKey.key ? (
+                        <Check className="w-3.5 h-3.5 text-green-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => revokeApiKey(apiKey.key)}
+                      disabled={activeKeys.length <= 1}
+                      className="px-2.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 disabled:opacity-30 disabled:cursor-not-allowed text-red-400 rounded-lg text-xs font-medium transition-colors"
+                      title={activeKeys.length <= 1 ? 'Cannot revoke last active key' : 'Revoke key'}
+                    >
+                      Revoke
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => copyToClipboard(apiKey.key, apiKey.key)}
-                  className="p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors shrink-0"
-                  title="Copy key"
-                >
-                  {copiedKey === apiKey.key ? (
-                    <Check className="w-4 h-4 text-green-400" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </button>
-                <button
-                  onClick={() => revokeApiKey(apiKey.key)}
-                  disabled={activeKeys.length <= 1}
-                  className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 disabled:opacity-30 disabled:cursor-not-allowed text-red-400 rounded-lg text-xs font-medium transition-colors shrink-0"
-                  title={activeKeys.length <= 1 ? 'Cannot revoke last active key' : 'Revoke key'}
-                >
-                  Revoke
-                </button>
+                <code className="text-xs text-gray-400 font-mono block truncate">{apiKey.key}</code>
+                <span className="text-xs text-gray-600">Created {new Date(apiKey.createdAt).toLocaleDateString()}</span>
               </div>
             ))}
           </div>
 
         </div>
+        )}
 
-        {/* Redirect & Webhooks */}
+        {/* Redirect & Webhook tab */}
+        {pageTab === 'webhooks' && (
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
           <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
             <Webhook className="w-5 h-5 text-glow-400" />
-            Redirect & Webhooks
+            Redirect & Webhook
           </h2>
 
           <div className="space-y-4">
@@ -384,8 +386,7 @@ export function DashboardIntegration() {
             )}
           </div>
         </div>
-
-        </>)}
+        )}
 
         {/* API Reference tab */}
         {pageTab === 'reference' && (
