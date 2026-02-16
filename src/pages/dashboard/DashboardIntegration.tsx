@@ -295,7 +295,7 @@ export function DashboardIntegration() {
               <div className="space-y-2">
                 {[
                   { event: 'payment.created', desc: 'Sent when a new payment request is created' },
-                  { event: 'payment.completed', desc: 'Sent when a payment is settled on the Lightning Network' },
+                  { event: 'payment.completed', desc: 'Sent when a payment is settled' },
                   { event: 'payment.expired', desc: 'Sent when a payment invoice expires without being paid' },
                 ].map(({ event, desc }) => (
                   <div key={event} className="flex items-start gap-3 p-3 bg-surface-900 rounded-lg">

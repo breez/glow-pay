@@ -20,7 +20,7 @@ export interface Merchant {
   rotationCount: number // 1-10
   webhookUrl?: string | null
   webhookSecret?: string | null
-  brandColor?: string | null   // hex, e.g. "#3b82f6"
+  brandColor?: string | null   // hex, e.g. "#f59e0b"
   logoUrl?: string | null       // URL to merchant logo image
   createdAt: string
 }
