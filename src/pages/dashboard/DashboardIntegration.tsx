@@ -4,6 +4,53 @@ import { getMerchant, saveMerchant, generateApiKey, generateSecret } from '@/lib
 import { syncMerchantToServer } from '@/lib/api-client'
 import type { Merchant, ApiKey } from '@/lib/types'
 
+type CodeTab = 'curl' | 'js' | 'response'
+
+function CodeTabs({ curl, js, response, copyId, copiedKey, onCopy }: {
+  curl: string
+  js: string
+  response: string
+  copyId: string
+  copiedKey: string | null
+  onCopy: (text: string, id: string) => void
+}) {
+  const [tab, setTab] = useState<CodeTab>('curl')
+  const content = tab === 'curl' ? curl : tab === 'js' ? js : response
+
+  return (
+    <div>
+      <div className="flex gap-1 mb-2">
+        {(['curl', 'js', 'response'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+              tab === t
+                ? 'bg-glow-400/20 text-glow-400'
+                : 'text-gray-500 hover:text-gray-300'
+            }`}
+          >
+            {t === 'curl' ? 'cURL' : t === 'js' ? 'JavaScript' : 'Response'}
+          </button>
+        ))}
+      </div>
+      <div className="relative">
+        <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">
+          {content}
+        </pre>
+        {tab !== 'response' && (
+          <button
+            onClick={() => onCopy(content, `${copyId}-${tab}`)}
+            className="absolute top-2 right-2 p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors"
+          >
+            {copiedKey === `${copyId}-${tab}` ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function DashboardIntegration() {
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
@@ -136,6 +183,7 @@ export function DashboardIntegration() {
   const activeKeys = merchant.apiKeys.filter(k => k.active)
   const revokedKeys = merchant.apiKeys.filter(k => !k.active)
   const displayKey = activeKeys[0]?.key || merchant.apiKey
+  const origin = window.location.origin
 
   return (
     <div className="max-w-3xl">
@@ -248,16 +296,34 @@ export function DashboardIntegration() {
           )}
         </div>
 
-        {/* Webhooks & Redirect */}
+        {/* Redirect & Webhooks */}
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
           <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
             <Webhook className="w-5 h-5 text-glow-400" />
-            Webhooks & Redirect
+            Redirect & Webhooks
           </h2>
 
           <div className="space-y-4">
-            {/* Webhook URL */}
+            {/* Redirect URL — first */}
             <div>
+              <label className="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
+                <ExternalLink className="w-4 h-4" />
+                Post-Payment Redirect URL
+              </label>
+              <input
+                type="url"
+                value={redirectUrl}
+                onChange={(e) => setRedirectUrl(e.target.value)}
+                placeholder="https://yoursite.com/success"
+                className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors mt-2"
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                After a successful payment, the customer is redirected here with <code className="text-gray-400">?payment_id=</code>, <code className="text-gray-400">&status=paid</code>, and <code className="text-gray-400">&amount_sats=</code> appended.
+              </p>
+            </div>
+
+            {/* Webhook URL */}
+            <div className="pt-4 border-t border-white/5">
               <label className="block text-sm font-medium text-gray-400 mb-2">Webhook URL</label>
               <input
                 type="url"
@@ -267,7 +333,7 @@ export function DashboardIntegration() {
                 className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors"
               />
               <p className="text-xs text-gray-500 mt-2">
-                We'll send a POST request here when a payment is created, completed, or expires. The payload is signed via the <code className="text-gray-400">X-Glow-Signature</code> header (HMAC-SHA256).
+                Receives a POST request when a payment is created, completed, or expires. Signed with HMAC-SHA256 via the <code className="text-gray-400">X-Glow-Signature</code> header.
               </p>
             </div>
 
@@ -288,41 +354,6 @@ export function DashboardIntegration() {
                 </div>
               </div>
             )}
-
-            {/* Webhook Events */}
-            <div>
-              <p className="text-sm font-medium text-gray-400 mb-2">Events</p>
-              <div className="space-y-2">
-                {[
-                  { event: 'payment.created', desc: 'Sent when a new payment request is created' },
-                  { event: 'payment.completed', desc: 'Sent when a payment is settled' },
-                  { event: 'payment.expired', desc: 'Sent when a payment invoice expires without being paid' },
-                ].map(({ event, desc }) => (
-                  <div key={event} className="flex items-start gap-3 p-3 bg-surface-900 rounded-lg">
-                    <code className="text-xs font-mono text-glow-400 whitespace-nowrap mt-0.5">{event}</code>
-                    <span className="text-xs text-gray-400">{desc}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Redirect URL (moved from Settings) */}
-            <div className="pt-4 border-t border-white/5">
-              <label className="block text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
-                <ExternalLink className="w-4 h-4" />
-                Post-Payment Redirect URL
-              </label>
-              <input
-                type="url"
-                value={redirectUrl}
-                onChange={(e) => setRedirectUrl(e.target.value)}
-                placeholder="https://yoursite.com/success"
-                className="w-full px-4 py-3 bg-surface-700 border border-white/[0.06] rounded-xl focus:outline-none focus:border-glow-400 transition-colors"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                After a successful payment, the customer is redirected here with <code className="text-gray-400">?payment_id=</code>, <code className="text-gray-400">&status=paid</code>, and <code className="text-gray-400">&amount_sats=</code> appended.
-              </p>
-            </div>
 
             {/* Save button for config */}
             <button
@@ -348,42 +379,28 @@ export function DashboardIntegration() {
           </div>
         </div>
 
-        {/* API Documentation */}
+        {/* API Reference */}
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
           <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
             <Code className="w-5 h-5 text-glow-400" />
             API Reference
           </h2>
-          <p className="text-gray-400 text-sm mb-6">
-            Use the REST API to create and verify payments programmatically.
-          </p>
 
-          <div className="space-y-8">
-            {/* POST /api/payments */}
+          <div className="space-y-6">
+            {/* 1. Create Payment */}
             <div>
               <h3 className="text-sm font-bold font-mono text-glow-400 mb-1">POST /api/payments</h3>
-              <p className="text-xs text-gray-400 mb-3">Creates a payment request and returns a payment URL and invoice.</p>
+              <p className="text-xs text-gray-400 mb-3">Create a payment request. Returns a payment URL and invoice.</p>
 
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">curl</p>
-              <div className="relative">
-                <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`curl -X POST ${window.location.origin}/api/payments \\
+              <CodeTabs
+                copyId="create"
+                copiedKey={copiedKey}
+                onCopy={copyToClipboard}
+                curl={`curl -X POST ${origin}/api/payments \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${displayKey}" \\
-  -d '{"amountSats": 1000, "description": "Order #123"}'`}</pre>
-                <button
-                  onClick={() => copyToClipboard(
-                    `curl -X POST ${window.location.origin}/api/payments \\\n  -H "Content-Type: application/json" \\\n  -H "X-API-Key: ${displayKey}" \\\n  -d '{"amountSats": 1000, "description": "Order #123"}'`,
-                    'curl-create'
-                  )}
-                  className="absolute top-2 right-2 p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors"
-                >
-                  {copiedKey === 'curl-create' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mt-4 mb-2">JavaScript</p>
-              <div className="relative">
-                <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`const res = await fetch('${window.location.origin}/api/payments', {
+  -d '{"amountSats": 1000, "description": "Order #123"}'`}
+                js={`const res = await fetch('${origin}/api/payments', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -397,71 +414,37 @@ export function DashboardIntegration() {
 
 const { data } = await res.json();
 // Redirect customer to payment page
-window.location.href = data.paymentUrl;`}</pre>
-                <button
-                  onClick={() => copyToClipboard(
-                    `const res = await fetch('${window.location.origin}/api/payments', {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n    'X-API-Key': '${displayKey}',\n  },\n  body: JSON.stringify({\n    amountSats: 1000,\n    description: 'Order #123',\n  }),\n});\n\nconst { data } = await res.json();\nwindow.location.href = data.paymentUrl;`,
-                    'js-create'
-                  )}
-                  className="absolute top-2 right-2 p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors"
-                >
-                  {copiedKey === 'js-create' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mt-4 mb-2">Response</p>
-              <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`{
+window.location.href = data.paymentUrl;`}
+                response={`{
   "success": true,
   "data": {
     "paymentId": "m2abc_xyz123",
-    "paymentUrl": "${window.location.origin}/pay/...",
+    "paymentUrl": "${origin}/pay/...",
     "invoice": "lnbc...",
     "expiresAt": "2025-01-01T01:00:00Z",
     "amountSats": 1000
   }
-}`}</pre>
+}`}
+              />
             </div>
 
-            {/* GET /api/payments/:id */}
-            <div>
+            {/* 2. Check Payment */}
+            <div className="pt-6 border-t border-white/5">
               <h3 className="text-sm font-bold font-mono text-glow-400 mb-1">GET /api/payments/:id</h3>
-              <p className="text-xs text-gray-400 mb-3">Returns the current status of a payment. No authentication required.</p>
+              <p className="text-xs text-gray-400 mb-3">Check the current status of a payment. No authentication required.</p>
 
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">curl</p>
-              <div className="relative">
-                <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`curl ${window.location.origin}/api/payments/{paymentId}`}</pre>
-                <button
-                  onClick={() => copyToClipboard(
-                    `curl ${window.location.origin}/api/payments/{paymentId}`,
-                    'curl-get'
-                  )}
-                  className="absolute top-2 right-2 p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors"
-                >
-                  {copiedKey === 'curl-get' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mt-4 mb-2">JavaScript</p>
-              <div className="relative">
-                <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`const res = await fetch(
-  '${window.location.origin}/api/payments/{paymentId}'
+              <CodeTabs
+                copyId="get"
+                copiedKey={copiedKey}
+                onCopy={copyToClipboard}
+                curl={`curl ${origin}/api/payments/{paymentId}`}
+                js={`const res = await fetch(
+  '${origin}/api/payments/{paymentId}'
 );
 
 const { data } = await res.json();
-console.log(data.status); // 'pending' | 'completed' | 'expired'`}</pre>
-                <button
-                  onClick={() => copyToClipboard(
-                    `const res = await fetch(\n  '${window.location.origin}/api/payments/{paymentId}'\n);\n\nconst { data } = await res.json();\nconsole.log(data.status); // 'pending' | 'completed' | 'expired'`,
-                    'js-get'
-                  )}
-                  className="absolute top-2 right-2 p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors"
-                >
-                  {copiedKey === 'js-get' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-              </div>
-
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mt-4 mb-2">Response</p>
-              <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`{
+console.log(data.status); // 'pending' | 'completed' | 'expired'`}
+                response={`{
   "success": true,
   "data": {
     "id": "m2abc_xyz123",
@@ -476,14 +459,32 @@ console.log(data.status); // 'pending' | 'completed' | 'expired'`}</pre>
       "redirectUrl": null
     }
   }
-}`}</pre>
+}`}
+              />
             </div>
 
-            {/* Webhook Payload */}
-            <div>
-              <h3 className="text-sm font-bold font-mono text-glow-400 mb-1">Webhook Payload</h3>
-              <p className="text-xs text-gray-400 mb-3">Example payload sent to your webhook URL. Verify the signature using HMAC-SHA256 with your webhook secret.</p>
-              <pre className="bg-surface-900 rounded-xl p-5 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`// Headers
+            {/* 3. Webhooks */}
+            <div className="pt-6 border-t border-white/5">
+              <h3 className="text-sm font-bold font-mono text-glow-400 mb-1">Webhooks</h3>
+              <p className="text-xs text-gray-400 mb-3">
+                When a webhook URL is configured, Glow Pay sends a POST request for each payment event. Verify the signature to ensure the request is authentic.
+              </p>
+
+              <div className="space-y-3 mb-4">
+                {[
+                  { event: 'payment.created', desc: 'A new payment request was created' },
+                  { event: 'payment.completed', desc: 'A payment was settled successfully' },
+                  { event: 'payment.expired', desc: 'A payment invoice expired without being paid' },
+                ].map(({ event, desc }) => (
+                  <div key={event} className="flex items-start gap-3 p-2.5 bg-surface-900 rounded-lg">
+                    <code className="text-xs font-mono text-glow-400 whitespace-nowrap mt-0.5">{event}</code>
+                    <span className="text-xs text-gray-400">{desc}</span>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Example payload</p>
+              <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04] mb-4">{`// Headers
 X-Glow-Signature: <hmac-sha256 hex digest>
 
 // Body
@@ -495,6 +496,34 @@ X-Glow-Signature: <hmac-sha256 hex digest>
   "paidAt": "2025-01-01T00:02:30Z",
   "timestamp": "2025-01-01T00:02:31Z"
 }`}</pre>
+
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Verify signature (Node.js)</p>
+              <div className="relative">
+                <pre className="bg-surface-900 rounded-xl p-4 text-xs font-mono text-gray-300 leading-relaxed overflow-x-auto whitespace-pre border border-white/[0.04]">{`import { createHmac } from 'crypto';
+
+function verifyWebhook(body, signature, secret) {
+  const expected = createHmac('sha256', secret)
+    .update(body)
+    .digest('hex');
+  return signature === expected;
+}
+
+// In your handler:
+const isValid = verifyWebhook(
+  rawBody,
+  req.headers['x-glow-signature'],
+  process.env.GLOW_WEBHOOK_SECRET
+);`}</pre>
+                <button
+                  onClick={() => copyToClipboard(
+                    `import { createHmac } from 'crypto';\n\nfunction verifyWebhook(body, signature, secret) {\n  const expected = createHmac('sha256', secret)\n    .update(body)\n    .digest('hex');\n  return signature === expected;\n}\n\n// In your handler:\nconst isValid = verifyWebhook(\n  rawBody,\n  req.headers['x-glow-signature'],\n  process.env.GLOW_WEBHOOK_SECRET\n);`,
+                    'verify-webhook'
+                  )}
+                  className="absolute top-2 right-2 p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors"
+                >
+                  {copiedKey === 'verify-webhook' ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
             </div>
           </div>
         </div>
