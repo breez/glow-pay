@@ -1,15 +1,28 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Zap, Shield, Globe, ArrowRight } from 'lucide-react'
+import { Zap, Shield, Globe, ArrowRight, Loader2 } from 'lucide-react'
 import { getMerchant } from '@/lib/store'
 
 export function LandingPage() {
   const navigate = useNavigate()
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     const merchant = getMerchant()
-    if (merchant) navigate('/dashboard')
+    if (merchant) {
+      navigate('/dashboard', { replace: true })
+    } else {
+      setReady(true)
+    }
   }, [navigate])
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-glow-400" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen gradient-bg flex flex-col">

@@ -8,7 +8,7 @@ import { registerRandomAddressForAccount, expandWalletPool } from '@/lib/wallet/
 import { deriveMerchantId, deriveAuthToken } from '@/lib/auth'
 import type { Merchant } from '@/lib/types'
 
-type Step = 'choose' | 'creating' | 'restore' | 'complete'
+type Step = 'choose' | 'confirm' | 'creating' | 'restore' | 'complete'
 
 export function SetupWizard() {
   const navigate = useNavigate()
@@ -22,17 +22,23 @@ export function SetupWizard() {
     clearError,
   } = useWallet()
 
+  const [ready, setReady] = useState(false)
   const [step, setStep] = useState<Step>('choose')
   const [mnemonic, setMnemonic] = useState('')
   const [restoreMnemonic, setRestoreMnemonic] = useState('')
   const [copied, setCopied] = useState(false)
+  const [confirmed, setConfirmed] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [progress, setProgress] = useState('')
   const creatingRef = useRef(false)
 
   useEffect(() => {
     const merchant = getMerchant()
-    if (merchant) navigate('/dashboard')
+    if (merchant) {
+      navigate('/dashboard', { replace: true })
+    } else {
+      setReady(true)
+    }
   }, [navigate])
 
   const handleCopy = async () => {
@@ -41,18 +47,23 @@ export function SetupWizard() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleShowMnemonic = () => {
+    const phrase = generateMnemonic()
+    setMnemonic(phrase)
+    setConfirmed(false)
+    setStep('confirm')
+  }
+
   const handleCreate = async () => {
     if (creatingRef.current) return
     creatingRef.current = true
 
-    const phrase = generateMnemonic()
-    setMnemonic(phrase)
     setStep('creating')
     setCreateError(null)
     setProgress('Initializing account...')
 
     try {
-      await createWallet(phrase)
+      await createWallet(mnemonic)
 
       setProgress('Setting up payment accounts...')
       await expandWalletPool(10)
@@ -68,7 +79,7 @@ export function SetupWizard() {
       setProgress('Finalizing setup...')
       await refreshLightningAddress()
 
-      const merchantId = await deriveMerchantId(phrase)
+      const merchantId = await deriveMerchantId(mnemonic)
       const initialApiKey = generateApiKey()
       const now = new Date().toISOString()
 
@@ -212,7 +223,15 @@ export function SetupWizard() {
   }
 
   const words = mnemonic.split(' ')
-  const stepIndex = step === 'choose' ? 0 : step === 'complete' ? 2 : 1
+  const stepIndex = step === 'choose' ? 0 : step === 'complete' ? 2 : step === 'creating' ? 1.5 : 1
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen gradient-bg flex items-center justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-glow-400" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen gradient-bg">
@@ -265,7 +284,7 @@ export function SetupWizard() {
 
             <div className="space-y-2">
               <button
-                onClick={handleCreate}
+                onClick={handleShowMnemonic}
                 className="w-full flex items-center gap-3 p-4 bg-surface-800/60 border border-white/[0.06] rounded-xl hover:bg-surface-700/60 transition-colors text-left"
               >
                 <div className="w-10 h-10 rounded-lg bg-glow-400/20 flex items-center justify-center shrink-0">
@@ -295,8 +314,8 @@ export function SetupWizard() {
           </div>
         )}
 
-        {/* Step: Creating — show mnemonic while account is being set up */}
-        {step === 'creating' && (
+        {/* Step: Confirm — show mnemonic, require checkbox before proceeding */}
+        {step === 'confirm' && (
           <div>
             <div className="text-center mb-4">
               <h1 className="text-xl font-bold mb-1">Save Your Recovery Phrase</h1>
@@ -305,7 +324,6 @@ export function SetupWizard() {
               </p>
             </div>
 
-            {/* Mnemonic grid */}
             <div className="bg-surface-800/50 border border-white/[0.06] rounded-xl p-4 mb-3">
               <div className="grid grid-cols-3 gap-2">
                 {words.map((word, index) => (
@@ -317,7 +335,6 @@ export function SetupWizard() {
               </div>
             </div>
 
-            {/* Copy */}
             <div className="flex justify-center mb-3">
               <button
                 onClick={handleCopy}
@@ -329,7 +346,6 @@ export function SetupWizard() {
               </button>
             </div>
 
-            {/* Warning */}
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-4 flex items-start gap-2.5">
               <Shield className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
               <p className="text-xs text-gray-400">
@@ -337,21 +353,43 @@ export function SetupWizard() {
               </p>
             </div>
 
-            {createError && (
-              <div className="mb-4 bg-red-500/20 border border-red-500/30 rounded-xl p-3 flex items-start gap-2">
+            <label className="flex items-start gap-2.5 mb-4 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                onChange={(e) => setConfirmed(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-white/20 bg-surface-700 accent-glow-400"
+              />
+              <span className="text-sm text-gray-300">
+                I have saved my recovery phrase securely.
+              </span>
+            </label>
+
+            <button
+              onClick={handleCreate}
+              disabled={!confirmed}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-all text-sm"
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {/* Step: Creating — progress while account is being set up */}
+        {step === 'creating' && (
+          <div className="text-center pt-8">
+            {createError ? (
+              <div className="mb-4 bg-red-500/20 border border-red-500/30 rounded-xl p-3 flex items-start gap-2 text-left">
                 <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                 <p className="text-sm text-red-400">{createError}</p>
               </div>
+            ) : (
+              <>
+                <Loader2 className="w-8 h-8 animate-spin text-glow-400 mx-auto mb-4" />
+                <p className="text-sm font-semibold text-gray-300">Setting up your account...</p>
+                {progress && <p className="text-xs text-gray-500 mt-1">{progress}</p>}
+              </>
             )}
-
-            {/* Progress indicator */}
-            <div className="w-full flex flex-col items-center justify-center gap-0.5 px-4 py-3 bg-surface-700/50 text-gray-300 font-semibold rounded-xl text-sm">
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-glow-400" />
-                Setting up your account...
-              </span>
-              {progress && <span className="text-xs font-medium text-gray-500">{progress}</span>}
-            </div>
           </div>
         )}
 
