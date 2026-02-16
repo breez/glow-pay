@@ -163,11 +163,11 @@ export function DashboardSettings() {
                 </div>
                 <label
                   className="w-12 h-12 rounded-xl border border-white/[0.06] flex-shrink-0 cursor-pointer overflow-hidden relative"
-                  style={{ backgroundColor: isValidHex(brandColor) ? brandColor : '#333' }}
+                  style={{ backgroundColor: isValidHex(brandColor) ? brandColor : '#a855f7' }}
                 >
                   <input
                     type="color"
-                    value={isValidHex(brandColor) ? brandColor : '#a855f7'}
+                    value={isValidHex(brandColor) && brandColor.length === 7 ? brandColor : '#a855f7'}
                     onChange={(e) => setBrandColor(e.target.value)}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
