@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, RefreshCw, Shield, Palette } from 'lucide-react'
+import { Save, RefreshCw, Shield } from 'lucide-react'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
 import type { Merchant } from '@/lib/types'
