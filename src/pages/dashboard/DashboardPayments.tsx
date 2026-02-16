@@ -140,7 +140,7 @@ export function DashboardPayments() {
             className="inline-flex items-center gap-2 px-6 py-3 bg-glow-400 hover:bg-glow-300 text-surface-900 font-semibold rounded-xl transition-colors text-sm"
           >
             <Plus className="w-4 h-4" />
-            Create Payment
+            New Payment
           </Link>
         </div>
       ) : (

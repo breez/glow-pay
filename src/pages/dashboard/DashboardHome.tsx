@@ -162,7 +162,7 @@ export function DashboardHome() {
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-glow-400 hover:bg-glow-300 text-surface-900 font-semibold rounded-lg text-sm transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-              Create Payment
+              New Payment
             </Link>
           </div>
         ) : (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Zap, Copy, Check, ArrowRight, Shield, Key, Loader2, AlertCircle, RotateCcw } from 'lucide-react'
 import { useWallet } from '@/lib/wallet/WalletContext'
@@ -8,7 +8,7 @@ import { registerRandomAddressForAccount, expandWalletPool } from '@/lib/wallet/
 import { deriveMerchantId, deriveAuthToken } from '@/lib/auth'
 import type { Merchant } from '@/lib/types'
 
-type Step = 'choose' | 'generate' | 'restore' | 'complete'
+type Step = 'choose' | 'creating' | 'restore' | 'complete'
 
 export function SetupWizard() {
   const navigate = useNavigate()
@@ -26,18 +26,14 @@ export function SetupWizard() {
   const [mnemonic, setMnemonic] = useState('')
   const [restoreMnemonic, setRestoreMnemonic] = useState('')
   const [copied, setCopied] = useState(false)
-  const [confirmed, setConfirmed] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [progress, setProgress] = useState('')
+  const creatingRef = useRef(false)
 
   useEffect(() => {
     const merchant = getMerchant()
     if (merchant) navigate('/dashboard')
   }, [navigate])
-
-  useEffect(() => {
-    if (step === 'generate' && !mnemonic) setMnemonic(generateMnemonic())
-  }, [step, mnemonic, generateMnemonic])
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(mnemonic)
@@ -45,11 +41,18 @@ export function SetupWizard() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleCreateWallet = async () => {
+  const handleCreate = async () => {
+    if (creatingRef.current) return
+    creatingRef.current = true
+
+    const phrase = generateMnemonic()
+    setMnemonic(phrase)
+    setStep('creating')
     setCreateError(null)
     setProgress('Initializing account...')
+
     try {
-      await createWallet(mnemonic)
+      await createWallet(phrase)
 
       setProgress('Setting up payment accounts...')
       await expandWalletPool(10)
@@ -65,7 +68,7 @@ export function SetupWizard() {
       setProgress('Finalizing setup...')
       await refreshLightningAddress()
 
-      const merchantId = await deriveMerchantId(mnemonic)
+      const merchantId = await deriveMerchantId(phrase)
       const initialApiKey = generateApiKey()
       const now = new Date().toISOString()
 
@@ -103,6 +106,7 @@ export function SetupWizard() {
     } catch (err) {
       setProgress('')
       setCreateError(err instanceof Error ? err.message : 'Failed to create account')
+      creatingRef.current = false
     }
   }
 
@@ -261,7 +265,7 @@ export function SetupWizard() {
 
             <div className="space-y-2">
               <button
-                onClick={() => setStep('generate')}
+                onClick={handleCreate}
                 className="w-full flex items-center gap-3 p-4 bg-surface-800/60 border border-white/[0.06] rounded-xl hover:bg-surface-700/60 transition-colors text-left"
               >
                 <div className="w-10 h-10 rounded-lg bg-glow-400/20 flex items-center justify-center shrink-0">
@@ -291,13 +295,13 @@ export function SetupWizard() {
           </div>
         )}
 
-        {/* Step: Generate Mnemonic */}
-        {step === 'generate' && (
+        {/* Step: Creating — show mnemonic while account is being set up */}
+        {step === 'creating' && (
           <div>
             <div className="text-center mb-4">
               <h1 className="text-xl font-bold mb-1">Save Your Recovery Phrase</h1>
               <p className="text-sm text-gray-400">
-                Write down these 12 words in order. This is the only way to recover your account.
+                Write down these 12 words. This is the only way to recover your account.
               </p>
             </div>
 
@@ -333,19 +337,6 @@ export function SetupWizard() {
               </p>
             </div>
 
-            {/* Confirm */}
-            <label className="flex items-start gap-2.5 mb-4 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                onChange={(e) => setConfirmed(e.target.checked)}
-                className="mt-0.5 w-4 h-4 rounded border-white/20 bg-surface-700 accent-glow-400"
-              />
-              <span className="text-sm text-gray-300">
-                I have saved my recovery phrase securely.
-              </span>
-            </label>
-
             {createError && (
               <div className="mb-4 bg-red-500/20 border border-red-500/30 rounded-xl p-3 flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
@@ -353,26 +344,14 @@ export function SetupWizard() {
               </div>
             )}
 
-            <button
-              onClick={handleCreateWallet}
-              disabled={!confirmed || isConnecting}
-              className="w-full flex flex-col items-center justify-center gap-0.5 px-4 py-3 bg-glow-400 hover:bg-glow-300 active:scale-[0.98] disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-all text-sm"
-            >
-              {isConnecting ? (
-                <>
-                  <span className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Setting up your account...
-                  </span>
-                  {progress && <span className="text-xs font-medium opacity-70">{progress}</span>}
-                </>
-              ) : (
-                <>
-                  Continue
-                  <span className="text-xs font-medium opacity-70">This may take a moment</span>
-                </>
-              )}
-            </button>
+            {/* Progress indicator */}
+            <div className="w-full flex flex-col items-center justify-center gap-0.5 px-4 py-3 bg-surface-700/50 text-gray-300 font-semibold rounded-xl text-sm">
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-glow-400" />
+                Setting up your account...
+              </span>
+              {progress && <span className="text-xs font-medium text-gray-500">{progress}</span>}
+            </div>
           </div>
         )}
 

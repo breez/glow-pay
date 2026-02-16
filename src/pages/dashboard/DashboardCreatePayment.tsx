@@ -217,7 +217,7 @@ export function DashboardCreatePayment() {
         Back
       </button>
 
-      <h1 className="text-2xl font-bold tracking-tight mb-1">Create Payment</h1>
+      <h1 className="text-2xl font-bold tracking-tight mb-1">New Payment</h1>
       <p className="text-sm text-gray-400 mb-8">Generate a payment link to share with your customer.</p>
 
       <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6 space-y-6">
@@ -270,7 +270,7 @@ export function DashboardCreatePayment() {
           ) : (
             <>
               <Zap className="w-5 h-5" />
-              Create Payment
+              New Payment
             </>
           )}
         </button>
