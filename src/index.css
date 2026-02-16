@@ -1,14 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  /* Glow Pay Brand Colors */
-  --color-glow-50: #fefce8;
-  --color-glow-100: #fef9c3;
-  --color-glow-200: #fef08a;
-  --color-glow-300: #fde047;
-  --color-glow-400: #facc15;
-  --color-glow-500: #eab308;
-  --color-glow-600: #ca8a04;
+  /* Glow Pay Brand Colors — Electric Blue */
+  --color-glow-50: #eff6ff;
+  --color-glow-100: #dbeafe;
+  --color-glow-200: #bfdbfe;
+  --color-glow-300: #93c5fd;
+  --color-glow-400: #3b82f6;
+  --color-glow-500: #2563eb;
+  --color-glow-600: #1d4ed8;
 
   /* Dark theme base */
   --color-surface-900: #0a0a0f;
@@ -48,11 +48,11 @@ body {
 
 /* Glowing effect for brand elements */
 .glow-text {
-  text-shadow: 0 0 16px rgba(250, 204, 21, 0.4), 0 0 32px rgba(250, 204, 21, 0.15);
+  text-shadow: 0 0 16px rgba(59, 130, 246, 0.4), 0 0 32px rgba(59, 130, 246, 0.15);
 }
 
 .glow-box {
-  box-shadow: 0 0 30px rgba(250, 204, 21, 0.2), 0 0 60px rgba(250, 204, 21, 0.1);
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.2), 0 0 60px rgba(59, 130, 246, 0.1);
 }
 
 /* Bitcoin orange glow */
@@ -63,8 +63,8 @@ body {
 /* Gradient background with warm radial glow */
 .gradient-bg {
   background:
-    radial-gradient(ellipse at 80% 0%, rgba(250, 204, 21, 0.02) 0%, transparent 60%),
-    linear-gradient(135deg, var(--color-surface-900) 0%, var(--color-surface-800) 50%, #1a1520 100%);
+    radial-gradient(ellipse at 80% 0%, rgba(59, 130, 246, 0.02) 0%, transparent 60%),
+    linear-gradient(135deg, var(--color-surface-900) 0%, var(--color-surface-800) 50%, #101520 100%);
 }
 
 /* QR code container */
