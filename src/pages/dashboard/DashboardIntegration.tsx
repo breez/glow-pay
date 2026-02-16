@@ -178,7 +178,7 @@ export function DashboardIntegration() {
   if (!merchant) {
     return (
       <div className="max-w-3xl">
-        <h1 className="text-2xl font-bold tracking-tight mb-1">API & Integration</h1>
+        <h1 className="text-2xl font-bold tracking-tight mb-1">Integration</h1>
         <p className="text-sm text-gray-400">Complete setup to access API integration.</p>
       </div>
     )
@@ -190,7 +190,7 @@ export function DashboardIntegration() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold tracking-tight mb-1">API & Integration</h1>
+      <h1 className="text-2xl font-bold tracking-tight mb-1">Integration</h1>
       <p className="text-sm text-gray-400 mb-4">Manage API keys, webhooks, and integrate Glow Pay with your application.</p>
 
       {/* Tabs */}

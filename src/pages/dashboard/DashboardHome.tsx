@@ -68,7 +68,7 @@ export function DashboardHome() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            {merchant.storeName || 'Overview'}
+            {merchant.storeName || 'Home'}
           </h1>
           {merchant.storeName && (
             <p className="text-sm text-gray-500 mt-0.5">Dashboard overview</p>
