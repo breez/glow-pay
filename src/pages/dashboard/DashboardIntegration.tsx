@@ -492,11 +492,11 @@ function verifyWebhook(body, signature, secret) {
 const isValid = verifyWebhook(
   rawBody,
   req.headers['x-glow-signature'],
-  process.env.GLOW_WEBHOOK_SECRET
+  'your-webhook-secret' // from the dashboard above
 );`}</pre>
                 <button
                   onClick={() => copyToClipboard(
-                    `import { createHmac } from 'crypto';\n\nfunction verifyWebhook(body, signature, secret) {\n  const expected = createHmac('sha256', secret)\n    .update(body)\n    .digest('hex');\n  return signature === expected;\n}\n\n// In your handler:\nconst isValid = verifyWebhook(\n  rawBody,\n  req.headers['x-glow-signature'],\n  process.env.GLOW_WEBHOOK_SECRET\n);`,
+                    `import { createHmac } from 'crypto';\n\nfunction verifyWebhook(body, signature, secret) {\n  const expected = createHmac('sha256', secret)\n    .update(body)\n    .digest('hex');\n  return signature === expected;\n}\n\n// In your handler:\nconst isValid = verifyWebhook(\n  rawBody,\n  req.headers['x-glow-signature'],\n  'your-webhook-secret' // from the dashboard above\n);`,
                     'verify-webhook'
                   )}
                   className="absolute top-2 right-2 p-2 bg-surface-800/80 border border-white/[0.06] hover:bg-surface-700 rounded-lg transition-colors"
