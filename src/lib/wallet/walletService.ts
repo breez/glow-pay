@@ -434,7 +434,20 @@ export const sweepAllFunds = async (
     throw new Error('No funds to sweep')
   }
 
-  // Send from each wallet sequentially to avoid issues
+  // Parse destination once to get LNURL-pay request details (for Lightning addresses)
+  onProgress?.('Resolving destination...')
+  const firstInstance = walletPool[0]
+  const parsed = await firstInstance.sdk.parse(destination)
+
+  // Lightning addresses resolve to lnurlPay, direct LNURL-pay links also work
+  if (parsed.type !== 'lnurlPay' && parsed.type !== 'lightningAddress') {
+    throw new Error('Destination must be a Lightning address (e.g. you@wallet.com)')
+  }
+  // InputType for lnurlPay/lightningAddress spreads LnurlPayRequestDetails onto the object
+  const { type: _type, ...payRequest } = parsed
+  const lnurlPayRequest = payRequest as breezSdk.LnurlPayRequestDetails
+
+  // Send from each wallet sequentially
   for (const wallet of walletsWithFunds) {
     const instance = walletPool.find(w => w.accountNumber === wallet.accountNumber)
     if (!instance) {
@@ -445,11 +458,11 @@ export const sweepAllFunds = async (
     onProgress?.(`Sweeping account ${wallet.accountNumber} (${wallet.balanceSats} sats)...`)
 
     try {
-      const prepareResponse = await instance.sdk.prepareSendPayment({
-        paymentRequest: destination,
-        amount: BigInt(wallet.balanceSats),
+      const prepareResponse = await instance.sdk.prepareLnurlPay({
+        amountSats: wallet.balanceSats,
+        payRequest: lnurlPayRequest,
       })
-      await instance.sdk.sendPayment({ prepareResponse })
+      await instance.sdk.lnurlPay({ prepareResponse })
       results.push({ accountNumber: wallet.accountNumber, balanceSats: wallet.balanceSats, success: true })
     } catch (err) {
       results.push({
