@@ -224,7 +224,7 @@ export const getAggregateBalance = async (): Promise<AggregateBalance> => {
   const results = await Promise.all(
     walletPool.map(async (instance) => {
       try {
-        const info = await instance.sdk.getInfo({ ensureSynced: true })
+        const info = await instance.sdk.getInfo({})
         const balanceSats = Number(info.balanceSats)
         return {
           accountNumber: instance.accountNumber,
