@@ -53,9 +53,8 @@ const connectOneWallet = async (i: number, network: breezSdk.Network, mnemonic: 
   }
 
   const signer = breezSdk.defaultExternalSigner(mnemonic, null, network, keySetConfig)
-  const builder = breezSdk.SdkBuilder.newWithSigner(config, signer)
-  builder.withKeySet(keySetConfig)
-  await builder.withDefaultStorage(`glow-pay-wallet-${i}`)
+  let builder = breezSdk.SdkBuilder.newWithSigner(config, signer).withKeySet(keySetConfig)
+  builder = await builder.withDefaultStorage(`glow-pay-wallet-${i}`)
   const sdk = await builder.build()
 
   // Enable public mode for LNURL-verify
