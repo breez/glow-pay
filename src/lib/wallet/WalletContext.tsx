@@ -17,6 +17,8 @@ import {
   refreshAllAddresses,
   selectAddress,
   getPoolSize,
+  setPoolEventCallback,
+  getEarlyListenerIds,
 } from './walletService'
 import type { AggregateBalance } from './walletService'
 
@@ -147,18 +149,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     syncedAccountsRef.current = new Set()
     setPoolSyncProgress(0)
     try {
+      // Register event callback BEFORE connecting so listeners are added
+      // inside connectOneWallet immediately after each SDK connects,
+      // before any sync events can be missed
+      setPoolEventCallback(handlePoolEvent)
       await initWalletPool(mnemonic, 'mainnet')
 
-      // Set up event listeners on all instances
-      if (eventListenerIdsRef.current.length === 0) {
-        try {
-          const listenerIds = await addEventListenerToAll(handlePoolEvent)
-          eventListenerIdsRef.current = listenerIds
-          console.log('Event listeners registered on all wallet instances')
-        } catch (e) {
-          console.warn('Failed to add event listeners:', e)
-        }
-      }
+      // Capture listener IDs that were registered during connection
+      eventListenerIdsRef.current = getEarlyListenerIds()
+      console.log(`Event listeners registered on ${eventListenerIdsRef.current.length} wallet instances`)
 
       setIsConnected(true)
       setWalletInfo(await getWalletInfo())

@@ -40,6 +40,16 @@ let logger: WebLogger | null = null
 
 const API_KEY = 'MIIBazCCAR2gAwIBAgIHPdG0GExEwzAFBgMrZXAwEDEOMAwGA1UEAxMFQnJlZXowHhcNMjUwMjIwMTIyODIxWhcNMzUwMjE4MTIyODIxWjAnMQ0wCwYDVQQKEwRUZXN0MRYwFAYDVQQDEw1Sb3kgU2hlaW5mZWxkMCowBQYDK2VwAyEA0IP1y98gPByiIMoph1P0G6cctLb864rNXw1LRLOpXXejfzB9MA4GA1UdDwEB/wQEAwIFoDAMBgNVHRMBAf8EAjAAMB0GA1UdDgQWBBTaOaPuXmtLDTJVv++VYBiQr9gHCTAfBgNVHSMEGDAWgBTeqtaSVvON53SSFvxMtiCyayiYazAdBgNVHREEFjAUgRJraW5nb25seUBnbWFpbC5jb20wBQYDK2VwA0EAINTIeR5+LrLIngPjGFrBrPzdRv4yN8kjNgRVdFDoa1fZPlynm4GjKoTGg8sHxEcRKP1QN2YP0s6NSDT3C+MIDw=='
 
+type PoolEventCallback = (event: breezSdk.SdkEvent, accountNumber: number) => void
+let poolEventCallback: PoolEventCallback | null = null
+const earlyListenerIds: string[] = []
+
+export const setPoolEventCallback = (cb: PoolEventCallback): void => {
+  poolEventCallback = cb
+}
+
+export const getEarlyListenerIds = (): string[] => earlyListenerIds
+
 const connectOneWallet = async (i: number, network: breezSdk.Network, mnemonic: string): Promise<WalletInstance> => {
   const config = breezSdk.defaultConfig(network)
   config.apiKey = API_KEY
@@ -54,6 +64,15 @@ const connectOneWallet = async (i: number, network: breezSdk.Network, mnemonic: 
 
   const signer = breezSdk.defaultExternalSigner(mnemonic, null, network, keySetConfig)
   const sdk = await breezSdk.connectWithSigner(config, signer, `glow-pay-wallet-${i}`)
+
+  // Add event listener immediately — before sync events can be missed
+  if (poolEventCallback) {
+    const listener: EventListener = {
+      onEvent: (event) => poolEventCallback!(event, i),
+    }
+    const id = await sdk.addEventListener(listener)
+    earlyListenerIds.push(id)
+  }
 
   // Enable public mode for LNURL-verify
   await sdk.updateUserSettings({ sparkPrivateModeEnabled: false }).catch(() => {})
