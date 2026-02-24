@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react'
-import { Save, RefreshCw, Shield } from 'lucide-react'
+import { Save, RefreshCw, Shield, ArrowUpRight, CheckCircle, XCircle, Loader2, Wallet } from 'lucide-react'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
+import { useWallet } from '@/lib/wallet/WalletContext'
+import type { SweepResult } from '@/lib/wallet/walletService'
 import type { Merchant } from '@/lib/types'
 
-type Tab = 'branding' | 'privacy'
+type Tab = 'branding' | 'privacy' | 'wallet'
 
 export function DashboardSettings() {
   const [tab, setTab] = useState<Tab>('branding')
   const [merchant, setMerchant] = useState<Merchant | null>(null)
+  const { aggregateBalance, refreshAggregateBalance, sweepFunds } = useWallet()
+  const [sweepDestination, setSweepDestination] = useState('')
+  const [sweeping, setSweeping] = useState(false)
+  const [sweepProgress, setSweepProgress] = useState('')
+  const [sweepResults, setSweepResults] = useState<SweepResult[] | null>(null)
+  const [sweepError, setSweepError] = useState<string | null>(null)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [storeName, setStoreName] = useState('')
   const [rotationCount, setRotationCount] = useState(1)
   const [brandColor, setBrandColor] = useState('')
@@ -114,6 +123,14 @@ export function DashboardSettings() {
           }`}
         >
           Address Rotation
+        </button>
+        <button
+          onClick={() => { setTab('wallet'); refreshAggregateBalance() }}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            tab === 'wallet' ? 'bg-glow-400/15 text-glow-400' : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          Wallet
         </button>
       </div>
 
@@ -251,6 +268,154 @@ export function DashboardSettings() {
           </div>
         )}
 
+        {/* Wallet tab */}
+        {tab === 'wallet' && (
+          <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
+            <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-glow-400" />
+              Sweep All Funds
+            </h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Send all funds from all accounts to a single Lightning address.
+            </p>
+
+            {/* Balance breakdown */}
+            {aggregateBalance && (
+              <div className="mb-4 bg-surface-700/50 rounded-xl p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-400">Total balance</span>
+                  <span className="text-sm font-bold">{aggregateBalance.totalBalanceSats.toLocaleString()} sats</span>
+                </div>
+                <div className="space-y-1">
+                  {aggregateBalance.perWallet.filter(w => w.balanceSats > 0).map(w => (
+                    <div key={w.accountNumber} className="flex justify-between text-xs text-gray-500">
+                      <span>Account {w.accountNumber}{w.address ? ` (${w.address.split('@')[0]})` : ''}</span>
+                      <span>{w.balanceSats.toLocaleString()} sats</span>
+                    </div>
+                  ))}
+                  {aggregateBalance.perWallet.every(w => w.balanceSats === 0) && (
+                    <p className="text-xs text-gray-500">No funds in any account.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Destination input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-400 mb-1">Destination Lightning Address</label>
+              <input
+                type="text"
+                value={sweepDestination}
+                onChange={(e) => { setSweepDestination(e.target.value); setSweepError(null); setSweepResults(null) }}
+                placeholder="you@wallet.com"
+                disabled={sweeping}
+                className="w-full px-3 py-2 bg-surface-700 border border-white/[0.06] rounded-lg text-sm focus:outline-none focus:border-glow-400 transition-colors"
+              />
+            </div>
+
+            {/* Sweep error */}
+            {sweepError && (
+              <div className="mb-4 bg-red-500/20 border border-red-500/30 rounded-xl p-3 text-sm text-red-400">
+                {sweepError}
+              </div>
+            )}
+
+            {/* Sweep progress */}
+            {sweeping && (
+              <div className="mb-4 flex items-center gap-2 text-sm text-gray-300">
+                <Loader2 className="w-4 h-4 animate-spin text-glow-400" />
+                {sweepProgress || 'Starting sweep...'}
+              </div>
+            )}
+
+            {/* Sweep results */}
+            {sweepResults && (
+              <div className="mb-4 bg-surface-700/50 rounded-xl p-3 space-y-1.5">
+                {sweepResults.map(r => (
+                  <div key={r.accountNumber} className="flex items-center gap-2 text-sm">
+                    {r.success
+                      ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                      : <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                    }
+                    <span className={r.success ? 'text-green-400' : 'text-red-400'}>
+                      Account {r.accountNumber}: {r.balanceSats.toLocaleString()} sats
+                      {r.success ? ' sent' : ` — ${r.error}`}
+                    </span>
+                  </div>
+                ))}
+                <div className="pt-1.5 border-t border-white/[0.06] text-sm font-medium">
+                  {sweepResults.every(r => r.success)
+                    ? <span className="text-green-400">All funds swept successfully.</span>
+                    : <span className="text-yellow-400">Some transfers failed. You can retry.</span>
+                  }
+                </div>
+              </div>
+            )}
+
+            {/* Confirmation */}
+            {showConfirm && !sweeping && (
+              <div className="mb-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
+                <p className="text-sm text-yellow-400 mb-3">
+                  Send <span className="font-bold">{aggregateBalance?.totalBalanceSats.toLocaleString()} sats</span> to{' '}
+                  <span className="font-mono">{sweepDestination}</span>?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowConfirm(false)}
+                    className="px-3 py-1.5 bg-surface-700 hover:bg-surface-600 text-gray-300 rounded-lg text-sm transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setShowConfirm(false)
+                      setSweeping(true)
+                      setSweepResults(null)
+                      setSweepError(null)
+                      try {
+                        const results = await sweepFunds(sweepDestination, setSweepProgress)
+                        setSweepResults(results)
+                      } catch (err) {
+                        setSweepError(err instanceof Error ? err.message : 'Sweep failed')
+                      } finally {
+                        setSweeping(false)
+                        setSweepProgress('')
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-red-500 hover:bg-red-400 text-white font-semibold rounded-lg text-sm transition-colors"
+                  >
+                    Confirm Sweep
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Sweep button */}
+            {!showConfirm && !sweeping && (
+              <button
+                onClick={() => {
+                  setSweepError(null)
+                  setSweepResults(null)
+                  if (!sweepDestination.trim()) {
+                    setSweepError('Enter a destination Lightning address')
+                    return
+                  }
+                  if (!aggregateBalance || aggregateBalance.totalBalanceSats === 0) {
+                    setSweepError('No funds to sweep')
+                    return
+                  }
+                  setShowConfirm(true)
+                }}
+                disabled={!sweepDestination.trim() || !aggregateBalance || aggregateBalance.totalBalanceSats === 0}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/80 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors text-sm"
+              >
+                <ArrowUpRight className="w-4 h-4" />
+                Sweep All Funds
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Error/Success messages */}
         {error && (
           <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-4 text-red-400">
@@ -264,24 +429,26 @@ export function DashboardSettings() {
           </div>
         )}
 
-        {/* Save button */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-glow-400 hover:bg-glow-300 active:bg-glow-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-colors text-sm"
-        >
-          {saving ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              Save Changes
-            </>
-          )}
-        </button>
+        {/* Save button (branding & privacy tabs only) */}
+        {tab !== 'wallet' && (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-glow-400 hover:bg-glow-300 active:bg-glow-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-colors text-sm"
+          >
+            {saving ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Save Changes
+              </>
+            )}
+          </button>
+        )}
       </div>
     </div>
   )

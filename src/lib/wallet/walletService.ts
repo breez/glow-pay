@@ -409,5 +409,60 @@ export const clearMnemonic = (): void => {
   localStorage.removeItem('glowpay_mnemonic')
 }
 
+// Sweep all funds from all wallets to a destination Lightning address
+export interface SweepResult {
+  accountNumber: number
+  balanceSats: number
+  success: boolean
+  error?: string
+}
+
+export const sweepAllFunds = async (
+  destination: string,
+  onProgress?: (msg: string) => void,
+): Promise<SweepResult[]> => {
+  if (walletPool.length === 0) throw new Error('Wallet pool not initialized')
+
+  const results: SweepResult[] = []
+
+  // Get balances for all wallets
+  onProgress?.('Checking balances...')
+  const balance = await getAggregateBalance()
+  const walletsWithFunds = balance.perWallet.filter(w => w.balanceSats > 0)
+
+  if (walletsWithFunds.length === 0) {
+    throw new Error('No funds to sweep')
+  }
+
+  // Send from each wallet sequentially to avoid issues
+  for (const wallet of walletsWithFunds) {
+    const instance = walletPool.find(w => w.accountNumber === wallet.accountNumber)
+    if (!instance) {
+      results.push({ accountNumber: wallet.accountNumber, balanceSats: wallet.balanceSats, success: false, error: 'Wallet not connected' })
+      continue
+    }
+
+    onProgress?.(`Sweeping account ${wallet.accountNumber} (${wallet.balanceSats} sats)...`)
+
+    try {
+      const prepareResponse = await instance.sdk.prepareSendPayment({
+        paymentRequest: destination,
+        amount: BigInt(wallet.balanceSats),
+      })
+      await instance.sdk.sendPayment({ prepareResponse })
+      results.push({ accountNumber: wallet.accountNumber, balanceSats: wallet.balanceSats, success: true })
+    } catch (err) {
+      results.push({
+        accountNumber: wallet.accountNumber,
+        balanceSats: wallet.balanceSats,
+        success: false,
+        error: err instanceof Error ? err.message : 'Send failed',
+      })
+    }
+  }
+
+  return results
+}
+
 // Keep old initWallet as alias for backward compat
 export const initWallet = initWalletPool

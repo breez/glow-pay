@@ -18,8 +18,9 @@ import {
   getPoolSize,
   setPoolEventCallback,
   getEarlyListenerIds,
+  sweepAllFunds,
 } from './walletService'
-import type { AggregateBalance } from './walletService'
+import type { AggregateBalance, SweepResult } from './walletService'
 
 const MAX_RECONNECT_ATTEMPTS = 3
 const RECONNECT_DELAY_MS = 2000
@@ -44,6 +45,8 @@ interface WalletContextValue {
   allLightningAddresses: string[]
   selectPaymentAddress: () => { address: string; accountIndex: number }
   refreshAggregateBalance: () => Promise<void>
+  // Sweep
+  sweepFunds: (destination: string, onProgress?: (msg: string) => void) => Promise<SweepResult[]>
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null)
@@ -221,6 +224,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setAggregateBalance(await getAggregateBalance())
   }, [])
 
+  const sweepFunds = useCallback(async (destination: string, onProgress?: (msg: string) => void): Promise<SweepResult[]> => {
+    if (!connected()) throw new Error('Wallet not connected')
+    const results = await sweepAllFunds(destination, onProgress)
+    // Refresh balances after sweep
+    setAggregateBalance(await getAggregateBalance())
+    setWalletInfo(await getWalletInfo())
+    return results
+  }, [])
+
   return (
     <WalletContext.Provider value={{
       isConnecting,
@@ -242,6 +254,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       allLightningAddresses,
       selectPaymentAddress,
       refreshAggregateBalance,
+      sweepFunds,
     }}>
       {children}
     </WalletContext.Provider>
