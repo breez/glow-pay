@@ -461,6 +461,7 @@ export const sweepAllFunds = async (
       const prepareResponse = await instance.sdk.prepareLnurlPay({
         amountSats: wallet.balanceSats,
         payRequest: lnurlPayRequest,
+        feePolicy: 'feesIncluded',
       })
       await instance.sdk.lnurlPay({ prepareResponse })
       results.push({ accountNumber: wallet.accountNumber, balanceSats: wallet.balanceSats, success: true })
