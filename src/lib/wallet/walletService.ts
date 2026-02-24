@@ -221,28 +221,28 @@ export const selectAddress = (rotationCount?: number): { address: string; accoun
 
 // Aggregate balance across all wallets
 export const getAggregateBalance = async (): Promise<AggregateBalance> => {
-  const perWallet: AggregateBalance['perWallet'] = []
-  let totalBalanceSats = 0
+  const results = await Promise.all(
+    walletPool.map(async (instance) => {
+      try {
+        const info = await instance.sdk.getInfo({ ensureSynced: true })
+        const balanceSats = Number(info.balanceSats)
+        return {
+          accountNumber: instance.accountNumber,
+          balanceSats,
+          address: instance.lightningAddress,
+        }
+      } catch {
+        return {
+          accountNumber: instance.accountNumber,
+          balanceSats: 0,
+          address: instance.lightningAddress,
+        }
+      }
+    })
+  )
 
-  for (const instance of walletPool) {
-    try {
-      const info = await instance.sdk.getInfo({ ensureSynced: true })
-      perWallet.push({
-        accountNumber: instance.accountNumber,
-        balanceSats: info.balanceSats,
-        address: instance.lightningAddress,
-      })
-      totalBalanceSats += info.balanceSats
-    } catch {
-      perWallet.push({
-        accountNumber: instance.accountNumber,
-        balanceSats: 0,
-        address: instance.lightningAddress,
-      })
-    }
-  }
-
-  return { totalBalanceSats, perWallet }
+  const totalBalanceSats = results.reduce((sum, w) => sum + w.balanceSats, 0)
+  return { totalBalanceSats, perWallet: results }
 }
 
 // Get all registered Lightning addresses
