@@ -53,9 +53,7 @@ const connectOneWallet = async (i: number, network: breezSdk.Network, mnemonic: 
   }
 
   const signer = breezSdk.defaultExternalSigner(mnemonic, null, network, keySetConfig)
-  let builder = breezSdk.SdkBuilder.newWithSigner(config, signer).withKeySet(keySetConfig)
-  builder = await builder.withDefaultStorage(`glow-pay-v2-wallet-${i}`)
-  const sdk = await builder.build()
+  const sdk = await breezSdk.connectWithSigner(config, signer, `glow-pay-wallet-${i}`)
 
   // Enable public mode for LNURL-verify
   await sdk.updateUserSettings({ sparkPrivateModeEnabled: false }).catch(() => {})
@@ -228,7 +226,7 @@ export const getAggregateBalance = async (): Promise<AggregateBalance> => {
 
   for (const instance of walletPool) {
     try {
-      const info = await instance.sdk.getInfo({})
+      const info = await instance.sdk.getInfo({ ensureSynced: true })
       perWallet.push({
         accountNumber: instance.accountNumber,
         balanceSats: info.balanceSats,
