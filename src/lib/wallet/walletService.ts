@@ -56,14 +56,18 @@ const connectOneWallet = async (i: number, network: breezSdk.Network, mnemonic: 
   config.privateEnabledDefault = false
   config.lnurlDomain = 'breez.cash'
 
+  const seed: breezSdk.Seed = { type: 'mnemonic', mnemonic }
   const keySetConfig: breezSdk.KeySetConfig = {
     keySetType: 'default',
     useAddressIndex: false,
     accountNumber: i,
   }
 
-  const signer = breezSdk.defaultExternalSigner(mnemonic, null, network, keySetConfig)
-  const sdk = await breezSdk.connectWithSigner(config, signer, `glow-pay-wallet-${i}`)
+  // Use SdkBuilder.new with seed + withKeySet so the SDK knows the account number
+  // (connectWithSigner doesn't pass keySetConfig to the SDK, only to the signer)
+  let builder = breezSdk.SdkBuilder.new(config, seed).withKeySet(keySetConfig)
+  builder = await builder.withDefaultStorage(`glow-pay-wallet-${i}`)
+  const sdk = await builder.build()
 
   // Add event listener immediately — before sync events can be missed
   if (poolEventCallback) {
