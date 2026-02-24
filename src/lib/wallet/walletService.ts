@@ -439,13 +439,17 @@ export const sweepAllFunds = async (
   const firstInstance = walletPool[0]
   const parsed = await firstInstance.sdk.parse(destination)
 
-  // Lightning addresses resolve to lnurlPay, direct LNURL-pay links also work
-  if (parsed.type !== 'lnurlPay' && parsed.type !== 'lightningAddress') {
+  let lnurlPayRequest: breezSdk.LnurlPayRequestDetails
+  if (parsed.type === 'lightningAddress') {
+    // LightningAddressDetails has { address, payRequest }
+    lnurlPayRequest = (parsed as breezSdk.LightningAddressDetails & { type: string }).payRequest
+  } else if (parsed.type === 'lnurlPay') {
+    // LnurlPayRequestDetails is spread directly on the parsed object
+    const { type: _type, ...rest } = parsed
+    lnurlPayRequest = rest as breezSdk.LnurlPayRequestDetails
+  } else {
     throw new Error('Destination must be a Lightning address (e.g. you@wallet.com)')
   }
-  // InputType for lnurlPay/lightningAddress spreads LnurlPayRequestDetails onto the object
-  const { type: _type, ...payRequest } = parsed
-  const lnurlPayRequest = payRequest as breezSdk.LnurlPayRequestDetails
 
   // Send from each wallet sequentially
   for (const wallet of walletsWithFunds) {
