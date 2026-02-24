@@ -106,21 +106,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       syncedAccountsRef.current.add(accountNumber)
       setPoolSyncProgress(syncedAccountsRef.current.size)
 
-      // All wallets synced
       if (syncedAccountsRef.current.size >= getPoolSize()) {
         if (isRestoringRef.current) {
           isRestoringRef.current = false
           setIsSyncing(false)
         }
-        // Refresh all data
         const info = await getWalletInfo()
         setWalletInfo(info)
         const addr = await getLightningAddress()
         setLightningAddress(addr)
         setAllLightningAddresses(getAllLightningAddresses())
-        const balance = await getAggregateBalance()
-        setAggregateBalance(balance)
       }
+
+      // Refresh balance on every sync event
+      const balance = await getAggregateBalance()
+      setAggregateBalance(balance)
     } else if (event.type === 'paymentSucceeded' || event.type === 'paymentPending') {
       // Refresh balances on any payment activity
       const info = await getWalletInfo()
