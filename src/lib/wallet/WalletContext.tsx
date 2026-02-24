@@ -121,8 +121,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const balance = await getAggregateBalance()
         setAggregateBalance(balance)
       }
-    } else if (event.type === 'paymentSucceeded') {
-      // Refresh balances on any payment
+    } else if (event.type === 'paymentSucceeded' || event.type === 'paymentPending') {
+      // Refresh balances on any payment activity
       const info = await getWalletInfo()
       setWalletInfo(info)
       const balance = await getAggregateBalance()
