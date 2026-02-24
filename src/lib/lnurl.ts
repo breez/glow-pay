@@ -50,12 +50,16 @@ export async function fetchLnurlPayInfo(lightningAddress: string): Promise<Lnurl
 export async function requestInvoice(
   callbackUrl: string,
   amountMsats: number,
-  comment?: string
+  comment?: string,
+  expiry?: number
 ): Promise<LnurlInvoiceResponse> {
   const url = new URL(callbackUrl)
   url.searchParams.set('amount', amountMsats.toString())
   if (comment) {
     url.searchParams.set('comment', comment)
+  }
+  if (expiry) {
+    url.searchParams.set('expiry', expiry.toString())
   }
 
   const response = await fetch(url.toString())

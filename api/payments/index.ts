@@ -4,6 +4,8 @@ import { selectRotationAddress } from '../_lib/rotation.js'
 import { sendWebhook } from '../_lib/webhook.js'
 import { fetchLnurlPayInfo, requestInvoice, satsToMsats, extractPaymentHash, buildVerifyUrl } from '../../src/lib/lnurl.js'
 
+const PAYMENT_EXPIRY_SECS = 600
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
@@ -47,7 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Request invoice from breez.cash
-    const invoiceResponse = await requestInvoice(lnurlInfo.callback, msats, description)
+    const invoiceResponse = await requestInvoice(lnurlInfo.callback, msats, description, PAYMENT_EXPIRY_SECS)
 
     // Build verify URL
     let verifyUrl = invoiceResponse.verify || null
@@ -74,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       metadata: metadata || null,
       createdAt: now.toISOString(),
       paidAt: null,
-      expiresAt: new Date(now.getTime() + 10 * 60 * 1000).toISOString(),
+      expiresAt: new Date(now.getTime() + PAYMENT_EXPIRY_SECS * 1000).toISOString(),
       accountIndex: selected.accountIndex,
       usedAddress: selected.address,
     }
