@@ -10,7 +10,6 @@ import {
   getSavedMnemonic,
   clearMnemonic,
   getLightningAddress,
-  addEventListenerToAll,
   removeEventListenerFromAll,
   getAggregateBalance,
   getAllLightningAddresses,
