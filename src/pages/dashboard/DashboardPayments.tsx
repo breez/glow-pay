@@ -38,8 +38,31 @@ export function DashboardPayments() {
     setPayments(allPayments)
   }
 
+  const verifyPendingPayments = async (payments: Payment[]) => {
+    const pending = payments.filter(p => p.status === 'pending' && new Date(p.expiresAt) >= new Date())
+    let changed = false
+    for (const p of pending) {
+      try {
+        const result = await getPaymentFromApi(p.id)
+        if (result.success && result.data) {
+          if (result.data.status === 'completed') {
+            updatePaymentStatus(p.id, 'completed', result.data.paidAt || new Date().toISOString())
+            changed = true
+          } else if (result.data.status === 'expired') {
+            updatePaymentStatus(p.id, 'expired')
+            changed = true
+          }
+        }
+      } catch {
+        // best-effort
+      }
+    }
+    if (changed) refreshPayments()
+  }
+
   useEffect(() => {
     refreshPayments()
+    verifyPendingPayments(getPayments())
   }, [])
 
   const handleCheckPayment = async (payment: Payment) => {

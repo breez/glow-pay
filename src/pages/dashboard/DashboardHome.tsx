@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, AlertCircle, Wallet, Zap, Plus, ArrowUpRight, Clock, CheckCircle2, XCircle } from 'lucide-react'
 import { getMerchant, getPayments, updatePaymentStatus } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
+import { getPaymentFromApi } from '@/lib/api-client'
 import { useWallet } from '@/lib/wallet/WalletContext'
 import type { Merchant, Payment } from '@/lib/types'
 
@@ -12,8 +13,7 @@ export function DashboardHome() {
   const { aggregateBalance } = useWallet()
   const [showBreakdown, setShowBreakdown] = useState(false)
 
-  useEffect(() => {
-    setMerchant(getMerchant())
+  const loadPayments = () => {
     const allPayments = getPayments()
     for (const p of allPayments) {
       if (p.status === 'pending' && new Date(p.expiresAt) < new Date()) {
@@ -22,6 +22,37 @@ export function DashboardHome() {
       }
     }
     setPayments(allPayments)
+    return allPayments
+  }
+
+  useEffect(() => {
+    setMerchant(getMerchant())
+    const allPayments = loadPayments()
+
+    // Auto-verify pending payments against the server
+    const pending = allPayments.filter(p => p.status === 'pending' && new Date(p.expiresAt) >= new Date())
+    if (pending.length > 0) {
+      ;(async () => {
+        let changed = false
+        for (const p of pending) {
+          try {
+            const result = await getPaymentFromApi(p.id)
+            if (result.success && result.data) {
+              if (result.data.status === 'completed') {
+                updatePaymentStatus(p.id, 'completed', result.data.paidAt || new Date().toISOString())
+                changed = true
+              } else if (result.data.status === 'expired') {
+                updatePaymentStatus(p.id, 'expired')
+                changed = true
+              }
+            }
+          } catch {
+            // best-effort
+          }
+        }
+        if (changed) loadPayments()
+      })()
+    }
   }, [])
 
   const completed = payments.filter(p => p.status === 'completed')
