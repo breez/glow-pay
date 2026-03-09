@@ -59,7 +59,16 @@ const connectWallet = async (network: breezSdk.Network, mnemonic: string): Promi
   }
 
   // Enable public mode for LNURL-verify
-  await sdk.updateUserSettings({ sparkPrivateModeEnabled: false }).catch(() => {})
+  try {
+    const settings = await sdk.getUserSettings()
+    console.log(`[wallet] Current settings: sparkPrivateModeEnabled=${settings.sparkPrivateModeEnabled}`)
+    if (settings.sparkPrivateModeEnabled) {
+      await sdk.updateUserSettings({ sparkPrivateModeEnabled: false })
+      console.log('[wallet] Set sparkPrivateModeEnabled to false')
+    }
+  } catch (err) {
+    console.error('[wallet] Failed to update user settings:', err)
+  }
 
   const addrInfo = await sdk.getLightningAddress().catch(() => undefined)
 
