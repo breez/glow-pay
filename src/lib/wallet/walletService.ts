@@ -45,13 +45,8 @@ const connectWallet = async (network: breezSdk.Network, mnemonic: string): Promi
   config.lnurlDomain = 'breez.cash'
 
   const seed: breezSdk.Seed = { type: 'mnemonic', mnemonic }
-  const keySetConfig: breezSdk.KeySetConfig = {
-    keySetType: 'default',
-    useAddressIndex: false,
-    accountNumber: 0,
-  }
 
-  let builder = breezSdk.SdkBuilder.new(config, seed).withKeySet(keySetConfig)
+  let builder = breezSdk.SdkBuilder.new(config, seed)
   builder = await builder.withDefaultStorage('glow-pay-wallet-0')
   const sdk = await builder.build()
 
