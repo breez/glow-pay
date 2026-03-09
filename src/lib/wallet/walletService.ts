@@ -41,6 +41,7 @@ const connectWallet = async (network: breezSdk.Network, mnemonic: string): Promi
   const config = breezSdk.defaultConfig(network)
   config.apiKey = API_KEY
   config.privateEnabledDefault = false
+  config.supportLnurlVerify = true
   config.lnurlDomain = 'breez.cash'
 
   const seed: breezSdk.Seed = { type: 'mnemonic', mnemonic }
