@@ -45,9 +45,14 @@ const connectWallet = async (network: breezSdk.Network, mnemonic: string): Promi
   config.lnurlDomain = 'breez.cash'
 
   const seed: breezSdk.Seed = { type: 'mnemonic', mnemonic }
+  const keySetConfig: breezSdk.KeySetConfig = {
+    keySetType: 'default',
+    useAddressIndex: false,
+    accountNumber: 0,
+  }
 
-  let builder = breezSdk.SdkBuilder.new(config, seed)
-  builder = await builder.withDefaultStorage('glow-pay-wallet')
+  let builder = breezSdk.SdkBuilder.new(config, seed).withKeySet(keySetConfig)
+  builder = await builder.withDefaultStorage('glow-pay-wallet-0')
   const sdk = await builder.build()
 
   // Add event listener immediately — before sync events can be missed
@@ -59,13 +64,13 @@ const connectWallet = async (network: breezSdk.Network, mnemonic: string): Promi
     earlyListenerId = await sdk.addEventListener(listener)
   }
 
-  // Enable public mode for LNURL-verify
+  // Ensure account is public for LNURL-verify
   try {
     const settings = await sdk.getUserSettings()
-    console.log(`[wallet] Current settings: sparkPrivateModeEnabled=${settings.sparkPrivateModeEnabled}`)
+    console.log(`[wallet] sparkPrivateModeEnabled=${settings.sparkPrivateModeEnabled}`)
     if (settings.sparkPrivateModeEnabled) {
       await sdk.updateUserSettings({ sparkPrivateModeEnabled: false })
-      console.log('[wallet] Set sparkPrivateModeEnabled to false')
+      console.log('[wallet] Toggled to public mode')
     }
   } catch (err) {
     console.error('[wallet] Failed to update user settings:', err)
