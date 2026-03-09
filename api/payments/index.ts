@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getMerchantByApiKey, getAddressUsageFromKv, updateAddressUsageInKv, savePaymentToKv } from '../_lib/redis.js'
-import { selectRotationAddress } from '../_lib/rotation.js'
+import { getMerchantByApiKey, savePaymentToKv } from '../_lib/redis.js'
 import { sendWebhook } from '../_lib/webhook.js'
 import { fetchLnurlPayInfo, requestInvoice, satsToMsats, extractPaymentHash, buildVerifyUrl } from '../../src/lib/lnurl.js'
 
@@ -32,14 +31,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'amountSats must be a positive integer' })
   }
 
-  // Select rotation address
-  const usage = await getAddressUsageFromKv(merchant.id)
-  const selected = selectRotationAddress(merchant.lightningAddresses, usage, merchant.rotationEnabled ?? true, merchant.rotationCount)
-  await updateAddressUsageInKv(merchant.id, selected.accountIndex)
+  const address = merchant.lightningAddress
+  if (!address) {
+    return res.status(400).json({ error: 'Merchant has no Lightning address configured' })
+  }
 
   try {
     // Fetch LNURL-pay info from breez.cash
-    const lnurlInfo = await fetchLnurlPayInfo(selected.address)
+    const lnurlInfo = await fetchLnurlPayInfo(address)
     const msats = satsToMsats(amountSats)
 
     if (msats < lnurlInfo.minSendable || msats > lnurlInfo.maxSendable) {
@@ -56,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!verifyUrl) {
       const paymentHash = extractPaymentHash(invoiceResponse.pr)
       if (paymentHash) {
-        verifyUrl = buildVerifyUrl(selected.address, paymentHash)
+        verifyUrl = buildVerifyUrl(address, paymentHash)
       }
     }
 
@@ -77,8 +76,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       createdAt: now.toISOString(),
       paidAt: null,
       expiresAt: new Date(now.getTime() + PAYMENT_EXPIRY_SECS * 1000).toISOString(),
-      accountIndex: selected.accountIndex,
-      usedAddress: selected.address,
     }
 
     await savePaymentToKv(payment)

@@ -5,30 +5,9 @@ import type { Merchant, Payment } from './types'
 
 const STORAGE_KEY_MERCHANT = 'glow_pay_merchant'
 const STORAGE_KEY_PAYMENTS = 'glow_pay_payments'
-const STORAGE_KEY_ADDRESS_USAGE = 'glow_pay_address_usage'
-
-// Address usage tracking for rotation
-export function getAddressUsage(): Record<number, number> {
-  const stored = localStorage.getItem(STORAGE_KEY_ADDRESS_USAGE)
-  if (!stored) return {}
-  try {
-    return JSON.parse(stored)
-  } catch {
-    return {}
-  }
-}
-
-export function updateAddressUsage(accountIndex: number): void {
-  const usage = getAddressUsage()
-  usage[accountIndex] = Date.now()
-  localStorage.setItem(STORAGE_KEY_ADDRESS_USAGE, JSON.stringify(usage))
-}
 
 // Migrate old merchant records
 export function migrateMerchant(merchant: Merchant): Merchant {
-  if (!merchant.lightningAddresses) {
-    merchant.lightningAddresses = [merchant.lightningAddress]
-  }
   // Migrate single apiKey to apiKeys array
   if (!merchant.apiKeys) {
     merchant.apiKeys = [{
@@ -37,12 +16,6 @@ export function migrateMerchant(merchant: Merchant): Merchant {
       createdAt: merchant.createdAt,
       active: true,
     }]
-  }
-  if (merchant.rotationEnabled === undefined) {
-    merchant.rotationEnabled = false
-  }
-  if (merchant.rotationCount === undefined) {
-    merchant.rotationCount = 5
   }
   if (merchant.webhookUrl === undefined) {
     merchant.webhookUrl = null
@@ -58,6 +31,11 @@ export function migrateMerchant(merchant: Merchant): Merchant {
   }
   if (merchant.logoUrl === undefined) {
     merchant.logoUrl = null
+  }
+  // Migrate from multi-address: use first address if lightningAddresses exists
+  const legacy = merchant as Merchant & { lightningAddresses?: string[] }
+  if (legacy.lightningAddresses?.length && !merchant.lightningAddress) {
+    merchant.lightningAddress = legacy.lightningAddresses[0]
   }
   // Keep apiKey in sync with first active key
   const firstActive = merchant.apiKeys.find(k => k.active)

@@ -9,15 +9,12 @@ export interface ApiKey {
 // Merchant types
 export interface Merchant {
   id: string
-  lightningAddress: string // primary address (account 0), kept for backward compat
-  lightningAddresses: string[] // all addresses, indexed by accountNumber (0=primary, rotation=random)
+  lightningAddress: string
   storeName: string
   redirectUrl: string | null
   redirectSecret: string
   apiKey: string // backward compat — first active key
   apiKeys: ApiKey[]
-  rotationEnabled: boolean
-  rotationCount: number // 1-10
   webhookUrl?: string | null
   webhookSecret?: string | null
   brandColor?: string | null      // hex, e.g. "#a855f7"
@@ -40,8 +37,6 @@ export interface Payment {
   createdAt: string
   paidAt: string | null
   expiresAt: string
-  accountIndex?: number // which rotation wallet (1-5) was used for receiving
-  usedAddress?: string  // the specific Lightning address used
 }
 
 // LNURL types

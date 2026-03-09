@@ -2,25 +2,21 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, ty
 import * as bip39 from 'bip39'
 import * as breezSdk from '@breeztech/breez-sdk-spark'
 import {
-  initWalletPool,
+  initWallet,
   getWalletInfo,
+  getBalance,
   disconnect,
   connected,
   saveMnemonic,
   getSavedMnemonic,
   clearMnemonic,
   getLightningAddress,
-  removeEventListenerFromAll,
-  getAggregateBalance,
-  getAllLightningAddresses,
-  refreshAllAddresses,
-  selectAddress,
-  getPoolSize,
-  setPoolEventCallback,
-  getEarlyListenerIds,
+  removeEventListener as removeWalletEventListener,
+  setEventCallback,
+  getEarlyListenerId,
   sweepAllFunds,
 } from './walletService'
-import type { AggregateBalance, SweepResult } from './walletService'
+import type { SweepResult } from './walletService'
 
 const MAX_RECONNECT_ATTEMPTS = 3
 const RECONNECT_DELAY_MS = 2000
@@ -32,6 +28,7 @@ interface WalletContextValue {
   walletInfo: breezSdk.GetInfoResponse | null
   lightningAddress: breezSdk.LightningAddressInfo | null
   error: string | null
+  balanceSats: number
   generateMnemonic: () => string
   createWallet: (mnemonic: string) => Promise<void>
   restoreWallet: (mnemonic: string) => Promise<void>
@@ -39,14 +36,8 @@ interface WalletContextValue {
   refreshWalletInfo: () => Promise<void>
   refreshLightningAddress: () => Promise<void>
   clearError: () => void
-  // Multi-wallet
-  poolSyncProgress: number
-  aggregateBalance: AggregateBalance | null
-  allLightningAddresses: string[]
-  selectPaymentAddress: () => { address: string; accountIndex: number }
-  refreshAggregateBalance: () => Promise<void>
-  // Sweep
-  sweepFunds: (destination: string, onProgress?: (msg: string) => void) => Promise<SweepResult[]>
+  refreshBalance: () => Promise<void>
+  sweepFunds: (destination: string, onProgress?: (msg: string) => void) => Promise<SweepResult>
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null)
@@ -58,14 +49,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletInfo, setWalletInfo] = useState<breezSdk.GetInfoResponse | null>(null)
   const [lightningAddress, setLightningAddress] = useState<breezSdk.LightningAddressInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [poolSyncProgress, setPoolSyncProgress] = useState(0)
-  const [aggregateBalance, setAggregateBalance] = useState<AggregateBalance | null>(null)
-  const [allLightningAddresses, setAllLightningAddresses] = useState<string[]>([])
+  const [balanceSats, setBalanceSats] = useState(0)
 
-  const eventListenerIdsRef = useRef<string[]>([])
+  const eventListenerIdRef = useRef<string | null>(null)
   const reconnectAttemptRef = useRef(0)
   const isRestoringRef = useRef(false)
-  const syncedAccountsRef = useRef<Set<number>>(new Set())
 
   useEffect(() => {
     const savedMnemonic = getSavedMnemonic()
@@ -77,8 +65,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const reconnectWithRetry = async (mnemonic: string) => {
     reconnectAttemptRef.current = 0
     isRestoringRef.current = true
-    syncedAccountsRef.current = new Set()
-    setPoolSyncProgress(0)
     setIsSyncing(true)
 
     const attempt = async (): Promise<void> => {
@@ -104,42 +90,33 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     await attempt()
   }
 
-  const handlePoolEvent = useCallback(async (event: breezSdk.SdkEvent, accountNumber: number) => {
+  const handleEvent = useCallback(async (event: breezSdk.SdkEvent) => {
     if (event.type === 'synced') {
-      console.log(`Wallet account ${accountNumber} synced`)
-      syncedAccountsRef.current.add(accountNumber)
-      setPoolSyncProgress(syncedAccountsRef.current.size)
-
-      if (syncedAccountsRef.current.size >= getPoolSize()) {
-        if (isRestoringRef.current) {
-          isRestoringRef.current = false
-          setIsSyncing(false)
-        }
-        const info = await getWalletInfo()
-        setWalletInfo(info)
-        const addr = await getLightningAddress()
-        setLightningAddress(addr)
-        setAllLightningAddresses(getAllLightningAddresses())
+      console.log('Wallet synced')
+      if (isRestoringRef.current) {
+        isRestoringRef.current = false
+        setIsSyncing(false)
       }
-
-      // Refresh balance on every sync event
-      const balance = await getAggregateBalance()
-      setAggregateBalance(balance)
-    } else if (event.type === 'paymentSucceeded' || event.type === 'paymentPending') {
-      // Refresh balances on any payment activity
       const info = await getWalletInfo()
       setWalletInfo(info)
-      const balance = await getAggregateBalance()
-      setAggregateBalance(balance)
+      const addr = await getLightningAddress()
+      setLightningAddress(addr)
+      const bal = await getBalance()
+      setBalanceSats(bal)
+    } else if (event.type === 'paymentSucceeded' || event.type === 'paymentPending') {
+      const info = await getWalletInfo()
+      setWalletInfo(info)
+      const bal = await getBalance()
+      setBalanceSats(bal)
     }
   }, [])
 
-  // Cleanup event listeners on unmount
+  // Cleanup event listener on unmount
   useEffect(() => {
     return () => {
-      if (eventListenerIdsRef.current.length > 0) {
-        removeEventListenerFromAll(eventListenerIdsRef.current).catch(() => {})
-        eventListenerIdsRef.current = []
+      if (eventListenerIdRef.current) {
+        removeWalletEventListener(eventListenerIdRef.current).catch(() => {})
+        eventListenerIdRef.current = null
       }
     }
   }, [])
@@ -148,24 +125,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (connected()) return
     setIsConnecting(true)
     setError(null)
-    syncedAccountsRef.current = new Set()
-    setPoolSyncProgress(0)
     try {
-      // Register event callback BEFORE connecting so listeners are added
-      // inside connectOneWallet immediately after each SDK connects,
+      // Register event callback BEFORE connecting so listener is added
+      // inside connectWallet immediately after SDK connects,
       // before any sync events can be missed
-      setPoolEventCallback(handlePoolEvent)
-      await initWalletPool(mnemonic, 'mainnet')
+      setEventCallback(handleEvent)
+      await initWallet(mnemonic, 'mainnet')
 
-      // Capture listener IDs that were registered during connection
-      eventListenerIdsRef.current = getEarlyListenerIds()
-      console.log(`Event listeners registered on ${eventListenerIdsRef.current.length} wallet instances`)
+      // Capture listener ID that was registered during connection
+      eventListenerIdRef.current = getEarlyListenerId()
+      console.log(`Event listener registered: ${eventListenerIdRef.current}`)
 
       setIsConnected(true)
       setWalletInfo(await getWalletInfo())
       setLightningAddress(await getLightningAddress())
-      setAllLightningAddresses(getAllLightningAddresses())
-      setAggregateBalance(await getAggregateBalance())
+      setBalanceSats(await getBalance())
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect wallet')
       throw err
@@ -188,49 +162,41 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const disconnectWallet = useCallback(async () => {
-    if (eventListenerIdsRef.current.length > 0) {
-      await removeEventListenerFromAll(eventListenerIdsRef.current).catch(() => {})
-      eventListenerIdsRef.current = []
+    if (eventListenerIdRef.current) {
+      await removeWalletEventListener(eventListenerIdRef.current).catch(() => {})
+      eventListenerIdRef.current = null
     }
     await disconnect()
     clearMnemonic()
     setIsConnected(false)
     setWalletInfo(null)
     setLightningAddress(null)
-    setAggregateBalance(null)
-    setAllLightningAddresses([])
-    setPoolSyncProgress(0)
+    setBalanceSats(0)
   }, [])
 
   const refreshWalletInfo = useCallback(async () => {
     if (!connected()) return
     setWalletInfo(await getWalletInfo())
-    setAggregateBalance(await getAggregateBalance())
+    setBalanceSats(await getBalance())
   }, [])
 
   const refreshLightningAddress = useCallback(async () => {
     if (!connected()) return
     setLightningAddress(await getLightningAddress())
-    await refreshAllAddresses()
-    setAllLightningAddresses(getAllLightningAddresses())
   }, [])
 
-  const selectPaymentAddress = useCallback(() => {
-    return selectAddress()
-  }, [])
-
-  const refreshAggregateBalance = useCallback(async () => {
+  const refreshBalance = useCallback(async () => {
     if (!connected()) return
-    setAggregateBalance(await getAggregateBalance())
+    setBalanceSats(await getBalance())
   }, [])
 
-  const sweepFunds = useCallback(async (destination: string, onProgress?: (msg: string) => void): Promise<SweepResult[]> => {
+  const sweepFunds = useCallback(async (destination: string, onProgress?: (msg: string) => void): Promise<SweepResult> => {
     if (!connected()) throw new Error('Wallet not connected')
-    const results = await sweepAllFunds(destination, onProgress)
-    // Refresh balances after sweep
-    setAggregateBalance(await getAggregateBalance())
+    const result = await sweepAllFunds(destination, onProgress)
+    // Refresh balance after sweep
+    setBalanceSats(await getBalance())
     setWalletInfo(await getWalletInfo())
-    return results
+    return result
   }, [])
 
   return (
@@ -241,6 +207,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       walletInfo,
       lightningAddress,
       error,
+      balanceSats,
       generateMnemonic,
       createWallet,
       restoreWallet,
@@ -248,12 +215,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       refreshWalletInfo,
       refreshLightningAddress,
       clearError: () => setError(null),
-      // Multi-wallet
-      poolSyncProgress,
-      aggregateBalance,
-      allLightningAddresses,
-      selectPaymentAddress,
-      refreshAggregateBalance,
+      refreshBalance,
       sweepFunds,
     }}>
       {children}

@@ -48,10 +48,12 @@ async function handleGet(req: VercelRequest, res: VercelResponse) {
 
 // POST /api/merchants — sync merchant config (auth required for existing merchants)
 async function handlePost(req: VercelRequest, res: VercelResponse) {
-  const { merchantId, apiKey, apiKeys, storeName, lightningAddresses, redirectUrl, rotationEnabled, rotationCount, webhookUrl, webhookSecret, brandColor, brandBackground, logoUrl } = req.body ?? {}
+  const { merchantId, apiKey, apiKeys, storeName, lightningAddress, lightningAddresses, redirectUrl, webhookUrl, webhookSecret, brandColor, brandBackground, logoUrl } = req.body ?? {}
 
-  if (!merchantId || (!apiKey && !apiKeys?.length) || !lightningAddresses?.length) {
-    return res.status(400).json({ error: 'Missing required fields: merchantId, apiKey/apiKeys, lightningAddresses' })
+  // Accept either lightningAddress (new) or lightningAddresses[0] (old clients)
+  const resolvedAddress = lightningAddress || lightningAddresses?.[0]
+  if (!merchantId || (!apiKey && !apiKeys?.length) || !resolvedAddress) {
+    return res.status(400).json({ error: 'Missing required fields: merchantId, apiKey/apiKeys, lightningAddress' })
   }
 
   const authToken = extractBearerToken(req)
@@ -86,13 +88,10 @@ async function handlePost(req: VercelRequest, res: VercelResponse) {
   const merchant: ServerMerchant = {
     id: merchantId,
     storeName: storeName || '',
-    lightningAddress: lightningAddresses[0],
-    lightningAddresses,
+    lightningAddress: resolvedAddress,
     redirectUrl: redirectUrl || null,
     apiKey: firstActiveKey,
     apiKeys: resolvedApiKeys,
-    rotationEnabled: rotationEnabled ?? false,
-    rotationCount: rotationCount ?? 5,
     webhookUrl: webhookUrl || null,
     webhookSecret: webhookSecret || null,
     brandColor: brandColor || null,

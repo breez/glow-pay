@@ -15,10 +15,8 @@ export async function syncMerchantToServer(merchant: {
   apiKey: string
   apiKeys?: Array<{ key: string; label: string; active: boolean }>
   storeName: string
-  lightningAddresses: string[]
+  lightningAddress: string
   redirectUrl: string | null
-  rotationEnabled?: boolean
-  rotationCount?: number
   webhookUrl?: string | null
   webhookSecret?: string | null
   brandColor?: string | null
@@ -45,12 +43,11 @@ export async function restoreMerchantFromServer(merchantId: string, authToken: s
   data?: {
     id: string
     storeName: string
-    lightningAddresses: string[]
+    lightningAddress: string
+    lightningAddresses?: string[]
     redirectUrl: string | null
     apiKey: string
     apiKeys: Array<{ key: string; label: string; active: boolean; createdAt?: string }>
-    rotationEnabled: boolean
-    rotationCount: number
     webhookUrl?: string | null
     webhookSecret?: string | null
     brandColor?: string | null

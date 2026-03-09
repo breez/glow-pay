@@ -24,12 +24,9 @@ export interface ServerMerchant {
   id: string
   storeName: string
   lightningAddress: string
-  lightningAddresses: string[]
   redirectUrl: string | null
   apiKey: string // backward compat — first active key
   apiKeys: ServerApiKey[]
-  rotationEnabled: boolean
-  rotationCount: number
   webhookUrl?: string | null
   webhookSecret?: string | null
   brandColor?: string | null
@@ -83,19 +80,6 @@ export async function saveMerchantToKv(merchant: ServerMerchant, oldApiKeys?: st
   }
 }
 
-// Address usage helpers
-
-export async function getAddressUsageFromKv(merchantId: string): Promise<Record<number, number>> {
-  const usage = await getRedis().get<Record<number, number>>(`addr_usage:${merchantId}`)
-  return usage ?? {}
-}
-
-export async function updateAddressUsageInKv(merchantId: string, accountIndex: number): Promise<void> {
-  const usage = await getAddressUsageFromKv(merchantId)
-  usage[accountIndex] = Date.now()
-  await getRedis().set(`addr_usage:${merchantId}`, usage)
-}
-
 // Payment helpers
 
 export interface ServerPayment {
@@ -111,8 +95,6 @@ export interface ServerPayment {
   createdAt: string
   paidAt: string | null
   expiresAt: string
-  accountIndex?: number
-  usedAddress?: string
 }
 
 export async function getPaymentFromKv(paymentId: string): Promise<ServerPayment | null> {

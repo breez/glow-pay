@@ -1,25 +1,24 @@
 import { useState, useEffect } from 'react'
-import { Save, RefreshCw, Shield, ArrowUpRight, CheckCircle, XCircle, Loader2, Wallet } from 'lucide-react'
+import { Save, RefreshCw, ArrowUpRight, CheckCircle, XCircle, Loader2, Wallet } from 'lucide-react'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
 import { useWallet } from '@/lib/wallet/WalletContext'
 import type { SweepResult } from '@/lib/wallet/walletService'
 import type { Merchant } from '@/lib/types'
 
-type Tab = 'branding' | 'privacy' | 'wallet'
+type Tab = 'branding' | 'wallet'
 
 export function DashboardSettings() {
   const [tab, setTab] = useState<Tab>('branding')
   const [merchant, setMerchant] = useState<Merchant | null>(null)
-  const { aggregateBalance, refreshAggregateBalance, sweepFunds } = useWallet()
+  const { balanceSats, refreshBalance, sweepFunds } = useWallet()
   const [sweepDestination, setSweepDestination] = useState('')
   const [sweeping, setSweeping] = useState(false)
   const [sweepProgress, setSweepProgress] = useState('')
-  const [sweepResults, setSweepResults] = useState<SweepResult[] | null>(null)
+  const [sweepResult, setSweepResult] = useState<SweepResult | null>(null)
   const [sweepError, setSweepError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [storeName, setStoreName] = useState('')
-  const [rotationCount, setRotationCount] = useState(1)
   const [brandColor, setBrandColor] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
   const [brandBackground, setBrandBackground] = useState('')
@@ -33,7 +32,6 @@ export function DashboardSettings() {
     if (m) {
       setMerchant(m)
       setStoreName(m.storeName || '')
-      setRotationCount(m.rotationCount ?? 1)
       setBrandColor(m.brandColor || '')
       setLogoUrl(m.logoUrl || '')
       setBrandBackground(m.brandBackground || '')
@@ -49,7 +47,6 @@ export function DashboardSettings() {
       const updatedMerchant: Merchant = {
         id: merchant?.id || generateId(),
         lightningAddress: merchant?.lightningAddress || '',
-        lightningAddresses: merchant?.lightningAddresses || [],
         storeName,
         redirectUrl: merchant?.redirectUrl ?? null,
         redirectSecret: merchant?.redirectSecret || generateSecret(),
@@ -60,8 +57,6 @@ export function DashboardSettings() {
           createdAt: new Date().toISOString(),
           active: true,
         }],
-        rotationEnabled: true,
-        rotationCount,
         webhookUrl: merchant?.webhookUrl ?? null,
         webhookSecret: merchant?.webhookSecret ?? null,
         brandColor: brandColor || null,
@@ -79,10 +74,8 @@ export function DashboardSettings() {
         apiKey: activeKeys[0]?.key || updatedMerchant.apiKey,
         apiKeys: updatedMerchant.apiKeys,
         storeName: updatedMerchant.storeName,
-        lightningAddresses: updatedMerchant.lightningAddresses,
+        lightningAddress: updatedMerchant.lightningAddress,
         redirectUrl: updatedMerchant.redirectUrl,
-        rotationEnabled: updatedMerchant.rotationEnabled,
-        rotationCount: updatedMerchant.rotationCount,
         webhookUrl: updatedMerchant.webhookUrl,
         webhookSecret: updatedMerchant.webhookSecret,
         brandColor: updatedMerchant.brandColor,
@@ -117,15 +110,7 @@ export function DashboardSettings() {
           Branding
         </button>
         <button
-          onClick={() => setTab('privacy')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === 'privacy' ? 'bg-glow-400/15 text-glow-400' : 'text-gray-400 hover:text-white'
-          }`}
-        >
-          Address Rotation
-        </button>
-        <button
-          onClick={() => { setTab('wallet'); refreshAggregateBalance() }}
+          onClick={() => { setTab('wallet'); refreshBalance() }}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             tab === 'wallet' ? 'bg-glow-400/15 text-glow-400' : 'text-gray-400 hover:text-white'
           }`}
@@ -229,76 +214,24 @@ export function DashboardSettings() {
           </div>
         )}
 
-        {/* Privacy tab */}
-        {tab === 'privacy' && (
-          <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
-            <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-glow-400" />
-              Privacy & Address Rotation
-            </h2>
-            <p className="text-gray-400 text-sm mb-4">
-              Incoming payments are distributed across multiple addresses to enhance transaction privacy. A higher count provides stronger privacy but spreads your balance across more accounts.
-            </p>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Active receiving addresses: <span className="text-white font-bold">{rotationCount}</span>
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={10}
-                value={rotationCount}
-                onChange={(e) => setRotationCount(Number(e.target.value))}
-                className="w-full accent-glow-400"
-              />
-              <div className="flex justify-between mt-1 px-[2px]">
-                {Array.from({ length: 10 }, (_, i) => (
-                  <div
-                    key={i}
-                    className={`w-1 h-1 rounded-full ${i < rotationCount ? 'bg-glow-400/60' : 'bg-white/20'}`}
-                  />
-                ))}
-              </div>
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>1</span>
-                <span>10</span>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Wallet tab */}
         {tab === 'wallet' && (
           <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-6">
             <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
               <Wallet className="w-5 h-5 text-glow-400" />
-              Sweep All Funds
+              Sweep Funds
             </h2>
             <p className="text-gray-400 text-sm mb-4">
-              Send all funds from all accounts to a single Lightning address.
+              Send all funds to a destination Lightning address.
             </p>
 
-            {/* Balance breakdown */}
-            {aggregateBalance && (
-              <div className="mb-4 bg-surface-700/50 rounded-xl p-3">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-400">Total balance</span>
-                  <span className="text-sm font-bold">{aggregateBalance.totalBalanceSats.toLocaleString()} sats</span>
-                </div>
-                <div className="space-y-1">
-                  {aggregateBalance.perWallet.filter(w => w.balanceSats > 0).map(w => (
-                    <div key={w.accountNumber} className="flex justify-between text-xs text-gray-500">
-                      <span>Account {w.accountNumber}{w.address ? ` (${w.address.split('@')[0]})` : ''}</span>
-                      <span>{w.balanceSats.toLocaleString()} sats</span>
-                    </div>
-                  ))}
-                  {aggregateBalance.perWallet.every(w => w.balanceSats === 0) && (
-                    <p className="text-xs text-gray-500">No funds in any account.</p>
-                  )}
-                </div>
+            {/* Balance */}
+            <div className="mb-4 bg-surface-700/50 rounded-xl p-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-400">Balance</span>
+                <span className="text-sm font-bold">{balanceSats.toLocaleString()} sats</span>
               </div>
-            )}
+            </div>
 
             {/* Destination input */}
             <div className="mb-4">
@@ -306,7 +239,7 @@ export function DashboardSettings() {
               <input
                 type="text"
                 value={sweepDestination}
-                onChange={(e) => { setSweepDestination(e.target.value); setSweepError(null); setSweepResults(null) }}
+                onChange={(e) => { setSweepDestination(e.target.value); setSweepError(null); setSweepResult(null) }}
                 placeholder="you@wallet.com"
                 disabled={sweeping}
                 className="w-full px-3 py-2 bg-surface-700 border border-white/[0.06] rounded-lg text-sm focus:outline-none focus:border-glow-400 transition-colors"
@@ -328,26 +261,18 @@ export function DashboardSettings() {
               </div>
             )}
 
-            {/* Sweep results */}
-            {sweepResults && (
-              <div className="mb-4 bg-surface-700/50 rounded-xl p-3 space-y-1.5">
-                {sweepResults.map(r => (
-                  <div key={r.accountNumber} className="flex items-center gap-2 text-sm">
-                    {r.success
-                      ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
-                      : <XCircle className="w-4 h-4 text-red-400 shrink-0" />
-                    }
-                    <span className={r.success ? 'text-green-400' : 'text-red-400'}>
-                      Account {r.accountNumber}: {r.balanceSats.toLocaleString()} sats
-                      {r.success ? ' sent' : ` — ${r.error}`}
-                    </span>
-                  </div>
-                ))}
-                <div className="pt-1.5 border-t border-white/[0.06] text-sm font-medium">
-                  {sweepResults.every(r => r.success)
-                    ? <span className="text-green-400">All funds swept successfully.</span>
-                    : <span className="text-yellow-400">Some transfers failed. You can retry.</span>
+            {/* Sweep result */}
+            {sweepResult && (
+              <div className="mb-4 bg-surface-700/50 rounded-xl p-3">
+                <div className="flex items-center gap-2 text-sm">
+                  {sweepResult.success
+                    ? <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                    : <XCircle className="w-4 h-4 text-red-400 shrink-0" />
                   }
+                  <span className={sweepResult.success ? 'text-green-400' : 'text-red-400'}>
+                    {sweepResult.balanceSats.toLocaleString()} sats
+                    {sweepResult.success ? ' sent successfully' : ` — ${sweepResult.error}`}
+                  </span>
                 </div>
               </div>
             )}
@@ -356,7 +281,7 @@ export function DashboardSettings() {
             {showConfirm && !sweeping && (
               <div className="mb-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
                 <p className="text-sm text-yellow-400 mb-3">
-                  Send <span className="font-bold">{aggregateBalance?.totalBalanceSats.toLocaleString()} sats</span> to{' '}
+                  Send <span className="font-bold">{balanceSats.toLocaleString()} sats</span> to{' '}
                   <span className="font-mono">{sweepDestination}</span>?
                 </p>
                 <div className="flex gap-2">
@@ -370,11 +295,11 @@ export function DashboardSettings() {
                     onClick={async () => {
                       setShowConfirm(false)
                       setSweeping(true)
-                      setSweepResults(null)
+                      setSweepResult(null)
                       setSweepError(null)
                       try {
-                        const results = await sweepFunds(sweepDestination, setSweepProgress)
-                        setSweepResults(results)
+                        const result = await sweepFunds(sweepDestination, setSweepProgress)
+                        setSweepResult(result)
                       } catch (err) {
                         setSweepError(err instanceof Error ? err.message : 'Sweep failed')
                       } finally {
@@ -395,18 +320,18 @@ export function DashboardSettings() {
               <button
                 onClick={() => {
                   setSweepError(null)
-                  setSweepResults(null)
+                  setSweepResult(null)
                   if (!sweepDestination.trim()) {
                     setSweepError('Enter a destination Lightning address')
                     return
                   }
-                  if (!aggregateBalance || aggregateBalance.totalBalanceSats === 0) {
+                  if (balanceSats === 0) {
                     setSweepError('No funds to sweep')
                     return
                   }
                   setShowConfirm(true)
                 }}
-                disabled={!sweepDestination.trim() || !aggregateBalance || aggregateBalance.totalBalanceSats === 0}
+                disabled={!sweepDestination.trim() || balanceSats === 0}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/80 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors text-sm"
               >
                 <ArrowUpRight className="w-4 h-4" />
@@ -429,8 +354,8 @@ export function DashboardSettings() {
           </div>
         )}
 
-        {/* Save button (branding & privacy tabs only) */}
-        {tab !== 'wallet' && (
+        {/* Save button (branding tab only) */}
+        {tab === 'branding' && (
           <button
             onClick={handleSave}
             disabled={saving}

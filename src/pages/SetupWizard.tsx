@@ -4,7 +4,7 @@ import { Zap, Copy, Check, ArrowRight, Shield, Key, Loader2, AlertCircle, Rotate
 import { useWallet } from '@/lib/wallet/WalletContext'
 import { getMerchant, saveMerchant, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer, restoreMerchantFromServer } from '@/lib/api-client'
-import { registerRandomAddressForAccount, expandWalletPool } from '@/lib/wallet/walletService'
+import { registerRandomAddress } from '@/lib/wallet/walletService'
 import { deriveMerchantId, deriveAuthToken } from '@/lib/auth'
 import type { Merchant } from '@/lib/types'
 
@@ -65,16 +65,8 @@ export function SetupWizard() {
     try {
       await createWallet(mnemonic)
 
-      setProgress('Setting up payment accounts...')
-      await expandWalletPool(10)
-
-      setProgress('Generating addresses...')
-      const allAddresses: string[] = []
-      for (let i = 0; i < 10; i++) {
-        const addr = await registerRandomAddressForAccount(i)
-        allAddresses.push(addr)
-        setProgress(`Generating addresses... (${i + 1}/10)`)
-      }
+      setProgress('Generating address...')
+      const address = await registerRandomAddress()
 
       setProgress('Finalizing setup...')
       await refreshLightningAddress()
@@ -85,15 +77,12 @@ export function SetupWizard() {
 
       const merchant: Merchant = {
         id: merchantId,
-        lightningAddress: allAddresses[0],
-        lightningAddresses: allAddresses,
+        lightningAddress: address,
         storeName: '',
         redirectUrl: null,
         redirectSecret: generateSecret(),
         apiKey: initialApiKey,
         apiKeys: [{ key: initialApiKey, label: 'Default', createdAt: now, active: true }],
-        rotationEnabled: true,
-        rotationCount: 1,
         createdAt: now,
       }
       saveMerchant(merchant)
@@ -104,10 +93,8 @@ export function SetupWizard() {
           apiKey: merchant.apiKey,
           apiKeys: merchant.apiKeys,
           storeName: merchant.storeName,
-          lightningAddresses: merchant.lightningAddresses,
+          lightningAddress: merchant.lightningAddress,
           redirectUrl: merchant.redirectUrl,
-          rotationEnabled: merchant.rotationEnabled,
-          rotationCount: merchant.rotationCount,
         })
       } catch (err) {
         console.warn('Failed to sync merchant to server:', err)
@@ -133,10 +120,7 @@ export function SetupWizard() {
     try {
       await restoreWallet(trimmed)
 
-      setProgress('Setting up payment accounts...')
-      await expandWalletPool(10)
-
-      setProgress('Refreshing addresses...')
+      setProgress('Refreshing address...')
       await refreshLightningAddress()
 
       const merchantId = await deriveMerchantId(trimmed)
@@ -149,8 +133,7 @@ export function SetupWizard() {
         const data = result.data
         const merchant: Merchant = {
           id: data.id,
-          lightningAddress: data.lightningAddresses[0] || '',
-          lightningAddresses: data.lightningAddresses,
+          lightningAddress: data.lightningAddress || data.lightningAddresses?.[0] || '',
           storeName: data.storeName,
           redirectUrl: data.redirectUrl,
           redirectSecret: generateSecret(),
@@ -161,8 +144,6 @@ export function SetupWizard() {
             createdAt: k.createdAt || data.registeredAt,
             active: k.active,
           })),
-          rotationEnabled: data.rotationEnabled,
-          rotationCount: data.rotationCount,
           webhookUrl: data.webhookUrl,
           webhookSecret: data.webhookSecret,
           brandColor: data.brandColor,
@@ -174,27 +155,19 @@ export function SetupWizard() {
       } else {
         setProgress('Creating fresh account...')
 
-        const allAddresses: string[] = []
-        for (let i = 0; i < 10; i++) {
-          const addr = await registerRandomAddressForAccount(i)
-          allAddresses.push(addr)
-          setProgress(`Generating addresses... (${i + 1}/10)`)
-        }
+        const address = await registerRandomAddress()
 
         const initialApiKey = generateApiKey()
         const now = new Date().toISOString()
 
         const merchant: Merchant = {
           id: merchantId,
-          lightningAddress: allAddresses[0],
-          lightningAddresses: allAddresses,
+          lightningAddress: address,
           storeName: '',
           redirectUrl: null,
           redirectSecret: generateSecret(),
           apiKey: initialApiKey,
           apiKeys: [{ key: initialApiKey, label: 'Default', createdAt: now, active: true }],
-          rotationEnabled: true,
-          rotationCount: 1,
           createdAt: now,
         }
         saveMerchant(merchant)
@@ -205,10 +178,8 @@ export function SetupWizard() {
             apiKey: merchant.apiKey,
             apiKeys: merchant.apiKeys,
             storeName: merchant.storeName,
-            lightningAddresses: merchant.lightningAddresses,
+            lightningAddress: merchant.lightningAddress,
             redirectUrl: merchant.redirectUrl,
-            rotationEnabled: merchant.rotationEnabled,
-            rotationCount: merchant.rotationCount,
           })
         } catch (err) {
           console.warn('Failed to sync merchant to server:', err)

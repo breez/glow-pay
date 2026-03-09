@@ -10,8 +10,7 @@ import type { Merchant, Payment } from '@/lib/types'
 export function DashboardHome() {
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
-  const { aggregateBalance } = useWallet()
-  const [showBreakdown, setShowBreakdown] = useState(false)
+  const { balanceSats } = useWallet()
 
   const loadPayments = () => {
     const allPayments = getPayments()
@@ -120,7 +119,7 @@ export function DashboardHome() {
           <div>
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Balance</p>
             <p className="text-3xl font-bold tabular-nums">
-              {formatSats(aggregateBalance?.totalBalanceSats ?? 0)}
+              {formatSats(balanceSats)}
               <span className="text-lg font-normal text-gray-500 ml-1.5">sats</span>
             </p>
           </div>
@@ -128,26 +127,6 @@ export function DashboardHome() {
             <Wallet className="w-5 h-5 text-glow-400" />
           </div>
         </div>
-        {aggregateBalance && aggregateBalance.perWallet.length > 1 && (
-          <>
-            <button
-              onClick={() => setShowBreakdown(!showBreakdown)}
-              className="text-xs text-gray-500 hover:text-gray-400 mt-3 transition-colors"
-            >
-              {showBreakdown ? 'Hide accounts' : `${aggregateBalance.perWallet.length} accounts`}
-            </button>
-            {showBreakdown && (
-              <div className="mt-2 pt-2 border-t border-white/[0.06] space-y-1">
-                {aggregateBalance.perWallet.map((w: { accountNumber: number; balanceSats: number; address: string | null }) => (
-                  <div key={w.accountNumber} className="flex justify-between text-xs text-gray-500">
-                    <span className="truncate mr-3">{w.address ? w.address.split('@')[0] : `Account ${w.accountNumber}`}</span>
-                    <span className="tabular-nums shrink-0">{formatSats(w.balanceSats)} sats</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
       </div>
 
       {/* Mini stats row */}
