@@ -161,7 +161,7 @@ export const getAddress = (): string | null => {
 export const getBalance = async (): Promise<number> => {
   if (!wallet) return 0
   try {
-    const info = await wallet.sdk.getInfo({})
+    const info = await wallet.sdk.getInfo({ ensureSynced: true })
     return Number(info.balanceSats)
   } catch {
     return 0
@@ -171,7 +171,7 @@ export const getBalance = async (): Promise<number> => {
 // Get wallet info
 export const getWalletInfo = async (): Promise<breezSdk.GetInfoResponse | null> => {
   if (!wallet) return null
-  return await wallet.sdk.getInfo({})
+  return await wallet.sdk.getInfo({ ensureSynced: true })
 }
 
 export const getLightningAddress = async (): Promise<breezSdk.LightningAddressInfo | null> => {
