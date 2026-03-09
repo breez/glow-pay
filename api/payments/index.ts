@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getMerchantByApiKey, savePaymentToKv } from '../_lib/redis.js'
 import { sendWebhook } from '../_lib/webhook.js'
-import { fetchLnurlPayInfo, requestInvoice, satsToMsats, extractPaymentHash, buildVerifyUrl } from '../../src/lib/lnurl.js'
+import { fetchLnurlPayInfo, requestInvoice, satsToMsats } from '../../src/lib/lnurl.js'
 
 const PAYMENT_EXPIRY_SECS = 600
 
@@ -50,14 +50,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Request invoice from breez.cash
     const invoiceResponse = await requestInvoice(lnurlInfo.callback, msats, description, PAYMENT_EXPIRY_SECS)
 
-    // Build verify URL
-    let verifyUrl = invoiceResponse.verify || null
-    if (!verifyUrl) {
-      const paymentHash = extractPaymentHash(invoiceResponse.pr)
-      if (paymentHash) {
-        verifyUrl = buildVerifyUrl(address, paymentHash)
-      }
-    }
+    // Use verify URL from breez.cash (only available for public accounts)
+    const verifyUrl = invoiceResponse.verify || null
 
     // Generate payment ID
     const paymentId = `${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`
