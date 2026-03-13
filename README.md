@@ -10,10 +10,11 @@ The simplest way to accept bitcoin payments on your website. No server is requir
 - **REST API**: Create and verify payments programmatically
 - **Webhooks**: Get notified on payment events with HMAC-SHA256 signed payloads
 - **Checkout Branding**: Custom logo, colors, and background on payment pages
+- **Sweep Funds**: Send your full balance to any Lightning address
 
 ## How It Works
 
-1. **Setup**: Create a Lightning wallet and register up to 10 `@breez.cash` addresses
+1. **Setup**: Create a Lightning wallet with a `@breez.cash` Lightning address
 2. **Create Payment**: Generate a payment link from the dashboard or via the API
 3. **Customer Pays**: Customer scans the QR code with any Lightning wallet
 4. **Verification**: Payment is confirmed automatically via LNURL-verify
@@ -55,13 +56,16 @@ src/
       DashboardPayments.tsx  # Payment list + management
       DashboardCreatePayment.tsx
       DashboardIntegration.tsx   # API keys, webhooks, API docs
-      DashboardSettings.tsx      # Branding + address rotation
+      DashboardSettings.tsx      # Branding + wallet (sweep funds)
   lib/
     store.ts                 # localStorage persistence
     auth.ts                  # Mnemonic-derived merchant ID + auth token
     api-client.ts            # Client-side API helpers
     lnurl.ts                 # LNURL utilities
     types.ts                 # Shared types
+    wallet/
+      walletService.ts       # SDK connection, balance, sweep funds
+      WalletContext.tsx       # React context, event handling, reconnection
 
 api/                         # Vercel serverless functions
   payments.ts                # POST /api/payments, GET /api/payments/:id
