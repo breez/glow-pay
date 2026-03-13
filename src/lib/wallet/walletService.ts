@@ -40,7 +40,6 @@ export const getEarlyListenerId = (): string | null => earlyListenerId
 const connectWallet = async (network: breezSdk.Network, mnemonic: string): Promise<WalletInstance> => {
   const config = breezSdk.defaultConfig(network)
   config.apiKey = API_KEY
-  config.privateEnabledDefault = false
   config.supportLnurlVerify = true
   config.lnurlDomain = 'breez.cash'
 
@@ -57,18 +56,6 @@ const connectWallet = async (network: breezSdk.Network, mnemonic: string): Promi
       onEvent: (event) => cb(event),
     }
     earlyListenerId = await sdk.addEventListener(listener)
-  }
-
-  // Ensure account is public for LNURL-verify
-  try {
-    const settings = await sdk.getUserSettings()
-    console.log(`[wallet] sparkPrivateModeEnabled=${settings.sparkPrivateModeEnabled}`)
-    if (settings.sparkPrivateModeEnabled) {
-      await sdk.updateUserSettings({ sparkPrivateModeEnabled: false })
-      console.log('[wallet] Toggled to public mode')
-    }
-  } catch (err) {
-    console.error('[wallet] Failed to update user settings:', err)
   }
 
   const addrInfo = await sdk.getLightningAddress().catch(() => undefined)
