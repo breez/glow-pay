@@ -4,14 +4,12 @@ The simplest way to accept bitcoin payments on your website. No server is requir
 
 ## Features
 
-- **Non-Custodial**: Funds go directly to your wallet — you control your keys
+- **Non-Custodial**: Funds go directly to your wallet, you control your keys
 - **Integrated Wallet**: Create a Lightning wallet with a 12-word recovery phrase
-- **Lightning Fast**: Instant settlement via Lightning Network
+- **Lightning Fast**: Instant settlement via Lightning
 - **REST API**: Create and verify payments programmatically
 - **Webhooks**: Get notified on payment events with HMAC-SHA256 signed payloads
 - **Checkout Branding**: Custom logo, colors, and background on payment pages
-- **Address Rotation**: Distribute payments across multiple addresses for privacy
-- **Account Restore**: Recover your full account from your 12-word phrase
 
 ## How It Works
 
