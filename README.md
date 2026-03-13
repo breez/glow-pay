@@ -1,6 +1,6 @@
 # Glow Pay
 
-The simplest way to accept bitcoin payments on your website. Non-custodial Lightning payments powered by Breez SDK.
+The simplest way to accept bitcoin payments on your website. No server is required. Non-custodial Lightning payments powered by Breez SDK.
 
 ## Features
 
