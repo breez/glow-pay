@@ -344,7 +344,10 @@ export function CheckoutPage() {
         {/* Footer */}
         <div className="mt-5 pt-4 border-t border-white/[0.06] text-center">
           <p className="text-xs text-gray-500">
-            Powered by Breez SDK
+            Powered by{' '}
+            <a href="https://glow-pay.co" target="_blank" rel="noopener noreferrer" className="text-glow-400 hover:text-glow-300 transition-colors">
+              glow-pay
+            </a>
           </p>
         </div>
       </div>
