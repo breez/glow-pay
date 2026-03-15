@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Zap, ArrowLeft, ExternalLink, Copy, Check, CheckCircle2 } from 'lucide-react'
-import { getMerchant, savePayment } from '@/lib/store'
+import { getMerchant } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
 import { createPaymentViaApi, syncMerchantToServer } from '@/lib/api-client'
 import type { Payment } from '@/lib/types'
@@ -79,7 +79,6 @@ export function DashboardCreatePayment() {
         expiresAt: result.data.expiresAt,
       }
 
-      savePayment(payment)
       setCreatedPayment(payment)
     } catch (err) {
       console.error('Create payment error:', err)

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, AlertCircle, Wallet, Zap, Plus, ArrowUpRight, ArrowDownRight, Clock, CheckCircle2, XCircle } from 'lucide-react'
-import { getMerchant, getPayments, updatePaymentStatus, savePayment } from '@/lib/store'
+import { ArrowRight, AlertCircle, Wallet, Zap, Plus, ArrowUpRight, ArrowDownRight, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { getMerchant } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
 import { getPaymentFromApi, listPaymentsFromApi } from '@/lib/api-client'
 import { useWallet } from '@/lib/wallet/WalletContext'
@@ -10,88 +10,73 @@ import type { Merchant, Payment } from '@/lib/types'
 export function DashboardHome() {
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const { balanceSats, isSyncing } = useWallet()
-
-  const loadPayments = () => {
-    const allPayments = getPayments()
-    for (const p of allPayments) {
-      if (p.status === 'pending' && new Date(p.expiresAt) < new Date()) {
-        updatePaymentStatus(p.id, 'expired')
-        p.status = 'expired'
-      }
-    }
-    setPayments(allPayments)
-    return allPayments
-  }
 
   useEffect(() => {
     const m = getMerchant()
     setMerchant(m)
-    loadPayments()
 
-    // Sync server-side payments (includes API-created ones like Boxed)
-    const syncAndVerify = async () => {
+    const loadPayments = async () => {
       const activeKey = m?.apiKeys?.find(k => k.active)?.key || m?.apiKey
-      if (activeKey) {
-        try {
-          const result = await listPaymentsFromApi(activeKey)
-          if (result.success && result.data) {
-            const local = getPayments()
-            const localIds = new Set(local.map(p => p.id))
-            for (const sp of result.data) {
-              if (!localIds.has(sp.id)) {
-                savePayment({
-                  id: sp.id,
-                  merchantId: m!.id,
-                  amountMsats: sp.amountSats * 1000,
-                  amountSats: sp.amountSats,
-                  description: sp.description,
-                  status: sp.status,
-                  metadata: sp.metadata,
-                  createdAt: sp.createdAt,
-                  expiresAt: sp.expiresAt,
-                  paidAt: sp.paidAt,
-                  invoice: null,
-                  verifyUrl: null,
-                })
-              } else {
-                const localPayment = local.find(p => p.id === sp.id)
-                if (localPayment && localPayment.status === 'pending' && sp.status !== 'pending') {
-                  updatePaymentStatus(sp.id, sp.status, sp.paidAt || undefined)
-                }
+      if (!activeKey) {
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const result = await listPaymentsFromApi(activeKey)
+        if (result.success && result.data) {
+          let list: Payment[] = result.data.map(sp => ({
+            id: sp.id,
+            merchantId: m!.id,
+            amountMsats: sp.amountSats * 1000,
+            amountSats: sp.amountSats,
+            description: sp.description,
+            status: sp.status,
+            type: sp.type,
+            metadata: sp.metadata,
+            createdAt: sp.createdAt,
+            expiresAt: sp.expiresAt,
+            paidAt: sp.paidAt,
+            invoice: null,
+            verifyUrl: null,
+          }))
+
+          // Mark client-side expired
+          const now = new Date()
+          for (const p of list) {
+            if (p.status === 'pending' && new Date(p.expiresAt) < now) {
+              p.status = 'expired'
+            }
+          }
+
+          // Verify pending payments via individual GET (triggers server-side LNURL-verify)
+          const pending = list.filter(p => p.status === 'pending')
+          for (const p of pending) {
+            try {
+              const r = await getPaymentFromApi(p.id)
+              if (r.success && r.data && r.data.status !== 'pending') {
+                p.status = r.data.status
+                p.paidAt = r.data.paidAt
               }
+            } catch {
+              // best-effort
             }
           }
-        } catch {
-          // best-effort
-        }
-      }
 
-      // Also verify any remaining pending payments individually
-      const allPayments = getPayments()
-      const pending = allPayments.filter(p => p.status === 'pending' && new Date(p.expiresAt) >= new Date())
-      for (const p of pending) {
-        try {
-          const result = await getPaymentFromApi(p.id)
-          if (result.success && result.data) {
-            if (result.data.status === 'completed') {
-              updatePaymentStatus(p.id, 'completed', result.data.paidAt || new Date().toISOString())
-            } else if (result.data.status === 'expired') {
-              updatePaymentStatus(p.id, 'expired')
-            }
-          }
-        } catch {
-          // best-effort
+          setPayments(list)
         }
+      } catch {
+        // best-effort
       }
-
-      loadPayments()
+      setIsLoading(false)
     }
 
-    syncAndVerify()
+    loadPayments()
   }, [])
 
-  const completed = payments.filter(p => p.status === 'completed')
+  const completed = payments.filter(p => p.status === 'completed' && p.type !== 'sweep')
   const pending = payments.filter(p => p.status === 'pending')
   const recent = payments.slice(0, 5)
 
@@ -177,15 +162,17 @@ export function DashboardHome() {
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-xl px-4 py-3">
           <p className="text-xs text-gray-500 mb-0.5">Received</p>
-          <p className="text-base font-bold tabular-nums">{formatSats(totalReceived)} <span className="text-xs font-normal text-gray-500">sats</span></p>
+          <p className="text-base font-bold tabular-nums">
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin inline" /> : <>{formatSats(totalReceived)} <span className="text-xs font-normal text-gray-500">sats</span></>}
+          </p>
         </div>
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-xl px-4 py-3">
           <p className="text-xs text-gray-500 mb-0.5">Settled</p>
-          <p className="text-base font-bold tabular-nums">{completed.length}</p>
+          <p className="text-base font-bold tabular-nums">{isLoading ? <Loader2 className="w-4 h-4 animate-spin inline" /> : completed.length}</p>
         </div>
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-xl px-4 py-3">
           <p className="text-xs text-gray-500 mb-0.5">Pending</p>
-          <p className="text-base font-bold tabular-nums">{pending.length}</p>
+          <p className="text-base font-bold tabular-nums">{isLoading ? <Loader2 className="w-4 h-4 animate-spin inline" /> : pending.length}</p>
         </div>
       </div>
 
@@ -204,7 +191,12 @@ export function DashboardHome() {
           )}
         </div>
 
-        {recent.length === 0 ? (
+        {isLoading ? (
+          <div className="px-4 py-10 text-center">
+            <Loader2 className="w-6 h-6 text-gray-600 animate-spin mx-auto mb-2" />
+            <p className="text-sm text-gray-500">Loading payments...</p>
+          </div>
+        ) : recent.length === 0 ? (
           <div className="px-4 py-10 text-center">
             <div className="w-10 h-10 rounded-xl bg-surface-700 flex items-center justify-center mx-auto mb-3">
               <Zap className="w-5 h-5 text-gray-600" />

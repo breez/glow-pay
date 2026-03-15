@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, ExternalLink, Copy, Check, CheckCircle, RefreshCw, Loader2, Zap } from 'lucide-react'
-import { getPayments, getMerchant, updatePaymentStatus, savePayment } from '@/lib/store'
+import { getMerchant } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
-import { getPaymentFromApi, listPaymentsFromApi } from '@/lib/api-client'
+import { getPaymentFromApi, listPaymentsFromApi, updatePaymentStatusViaApi } from '@/lib/api-client'
 import type { Payment } from '@/lib/types'
 
-const statusLabel = (status: string) => {
+const statusLabel = (status: string, type?: string) => {
+  if (type === 'sweep') return 'Swept'
   if (status === 'completed') return 'Settled'
   if (status === 'expired') return 'Expired'
   return 'Pending'
@@ -16,6 +17,7 @@ type ToastType = 'success' | 'error' | 'info'
 
 export function DashboardPayments() {
   const [payments, setPayments] = useState<Payment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [verifyingId, setVerifyingId] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
@@ -27,83 +29,68 @@ export function DashboardPayments() {
     setTimeout(() => setToast(null), 4000)
   }
 
-  const refreshPayments = () => {
-    const allPayments = getPayments()
-    for (const p of allPayments) {
-      if (p.status === 'pending' && new Date(p.expiresAt) < new Date()) {
-        updatePaymentStatus(p.id, 'expired')
-        p.status = 'expired'
-      }
-    }
-    setPayments(allPayments)
-  }
+  const getApiKey = () => merchant?.apiKeys?.find(k => k.active)?.key || merchant?.apiKey || ''
 
-  const verifyPendingPayments = async (payments: Payment[]) => {
-    const pending = payments.filter(p => p.status === 'pending' && new Date(p.expiresAt) >= new Date())
-    let changed = false
-    for (const p of pending) {
+  useEffect(() => {
+    const loadPayments = async () => {
+      const activeKey = getApiKey()
+      if (!activeKey) {
+        setIsLoading(false)
+        return
+      }
+
       try {
-        const result = await getPaymentFromApi(p.id)
+        const result = await listPaymentsFromApi(activeKey)
         if (result.success && result.data) {
-          if (result.data.status === 'completed') {
-            updatePaymentStatus(p.id, 'completed', result.data.paidAt || new Date().toISOString())
-            changed = true
-          } else if (result.data.status === 'expired') {
-            updatePaymentStatus(p.id, 'expired')
-            changed = true
+          let list: Payment[] = result.data.map(sp => ({
+            id: sp.id,
+            merchantId: merchant!.id,
+            amountMsats: sp.amountSats * 1000,
+            amountSats: sp.amountSats,
+            description: sp.description,
+            status: sp.status,
+            type: sp.type,
+            metadata: sp.metadata,
+            createdAt: sp.createdAt,
+            expiresAt: sp.expiresAt,
+            paidAt: sp.paidAt,
+            invoice: null,
+            verifyUrl: null,
+          }))
+
+          // Mark client-side expired
+          const now = new Date()
+          for (const p of list) {
+            if (p.status === 'pending' && new Date(p.expiresAt) < now) {
+              p.status = 'expired'
+            }
           }
+
+          // Verify pending payments via individual GET (triggers server-side LNURL-verify)
+          const pending = list.filter(p => p.status === 'pending')
+          let changed = false
+          for (const p of pending) {
+            try {
+              const r = await getPaymentFromApi(p.id)
+              if (r.success && r.data && r.data.status !== 'pending') {
+                p.status = r.data.status
+                p.paidAt = r.data.paidAt
+                changed = true
+              }
+            } catch {
+              // best-effort
+            }
+          }
+
+          setPayments(list)
         }
       } catch {
         // best-effort
       }
-    }
-    if (changed) refreshPayments()
-  }
-
-  useEffect(() => {
-    // Fetch server-side payments (includes API-created ones) and merge into localStorage
-    const syncServerPayments = async () => {
-      const activeKey = merchant?.apiKeys?.find(k => k.active)?.key || merchant?.apiKey
-      if (!activeKey) return
-      try {
-        const result = await listPaymentsFromApi(activeKey)
-        if (result.success && result.data) {
-          const local = getPayments()
-          const localIds = new Set(local.map(p => p.id))
-          for (const sp of result.data) {
-            if (!localIds.has(sp.id)) {
-              savePayment({
-                id: sp.id,
-                merchantId: merchant.id,
-                amountMsats: sp.amountSats * 1000,
-                amountSats: sp.amountSats,
-                description: sp.description,
-                status: sp.status,
-                metadata: sp.metadata,
-                createdAt: sp.createdAt,
-                expiresAt: sp.expiresAt,
-                paidAt: sp.paidAt,
-                invoice: null,
-                verifyUrl: null,
-              })
-            } else {
-              // Update status if server has newer info
-              const localPayment = local.find(p => p.id === sp.id)
-              if (localPayment && localPayment.status === 'pending' && sp.status !== 'pending') {
-                updatePaymentStatus(sp.id, sp.status, sp.paidAt || undefined)
-              }
-            }
-          }
-        }
-      } catch {
-        // best-effort sync
-      }
-      refreshPayments()
+      setIsLoading(false)
     }
 
-    refreshPayments()
-    syncServerPayments()
-    verifyPendingPayments(getPayments())
+    loadPayments()
   }, [])
 
   const handleCheckPayment = async (payment: Payment) => {
@@ -112,10 +99,14 @@ export function DashboardPayments() {
       const result = await getPaymentFromApi(payment.id)
       if (result.success && result.data) {
         if (result.data.status === 'completed') {
-          updatePaymentStatus(payment.id, 'completed', result.data.paidAt || new Date().toISOString())
+          setPayments(prev => prev.map(p =>
+            p.id === payment.id ? { ...p, status: 'completed' as const, paidAt: result.data!.paidAt } : p
+          ))
           showToast('Payment verified and marked as settled.', 'success')
         } else if (result.data.status === 'expired') {
-          updatePaymentStatus(payment.id, 'expired')
+          setPayments(prev => prev.map(p =>
+            p.id === payment.id ? { ...p, status: 'expired' as const } : p
+          ))
           showToast('This payment has expired.', 'info')
         } else {
           showToast('Payment has not been settled yet.', 'info')
@@ -123,7 +114,6 @@ export function DashboardPayments() {
       } else {
         showToast(result.error || 'Unable to verify payment.', 'error')
       }
-      refreshPayments()
     } catch (err) {
       console.error('Verify error:', err)
       showToast('Unable to verify payment. Please try again.', 'error')
@@ -132,11 +122,28 @@ export function DashboardPayments() {
     }
   }
 
-  const handleMarkCompleted = (paymentId: string) => {
-    updatePaymentStatus(paymentId, 'completed', new Date().toISOString())
+  const handleMarkCompleted = async (paymentId: string) => {
+    const activeKey = getApiKey()
+    if (!activeKey) {
+      showToast('No API key available.', 'error')
+      return
+    }
+
+    try {
+      const result = await updatePaymentStatusViaApi(activeKey, paymentId, 'completed')
+      if (result.success) {
+        setPayments(prev => prev.map(p =>
+          p.id === paymentId ? { ...p, status: 'completed' as const, paidAt: new Date().toISOString() } : p
+        ))
+        showToast('Payment marked as settled.', 'success')
+      } else {
+        showToast(result.error || 'Failed to update payment.', 'error')
+      }
+    } catch (err) {
+      console.error('Mark completed error:', err)
+      showToast('Failed to update payment. Please try again.', 'error')
+    }
     setConfirmingId(null)
-    refreshPayments()
-    showToast('Payment marked as settled.', 'success')
   }
 
   const copyPaymentUrl = async (paymentId: string) => {
@@ -146,7 +153,8 @@ export function DashboardPayments() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
-  const getStatusColor = (status: Payment['status']) => {
+  const getStatusColor = (status: Payment['status'], type?: string) => {
+    if (type === 'sweep') return 'bg-blue-500/20 text-blue-400'
     switch (status) {
       case 'completed': return 'bg-green-500/20 text-green-400'
       case 'expired': return 'bg-red-500/20 text-red-400'
@@ -195,7 +203,12 @@ export function DashboardPayments() {
         </div>
       )}
 
-      {payments.length === 0 ? (
+      {isLoading ? (
+        <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-12 text-center">
+          <Loader2 className="w-8 h-8 text-gray-600 animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-500">Loading payments...</p>
+        </div>
+      ) : payments.length === 0 ? (
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-12 text-center">
           <Zap className="w-12 h-12 text-gray-700 mx-auto mb-3" />
           <p className="text-sm text-gray-500 mb-4">No payment requests yet</p>
@@ -228,17 +241,21 @@ export function DashboardPayments() {
                       <p className="text-[11px] text-gray-600 font-mono">{payment.id.slice(0, 8)}...</p>
                     </td>
                     <td className="px-6 py-3.5">
-                      <p className="font-semibold tabular-nums">{formatSats(payment.amountSats)} sats</p>
+                      <p className="font-semibold tabular-nums">
+                        {payment.type === 'sweep' && <span className="text-blue-400">-</span>}
+                        {formatSats(payment.amountSats)} sats
+                      </p>
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className={`status-badge ${getStatusColor(payment.status)}`}>
-                        {statusLabel(payment.status)}
+                      <span className={`status-badge ${getStatusColor(payment.status, payment.type)}`}>
+                        {statusLabel(payment.status, payment.type)}
                       </span>
                     </td>
                     <td className="px-6 py-3.5 text-gray-400">
                       {new Date(payment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </td>
                     <td className="px-6 py-3.5">
+                      {payment.type !== 'sweep' && (
                       <div className="flex items-center justify-end gap-1.5">
                         {payment.status === 'pending' && (
                           <>
@@ -283,6 +300,7 @@ export function DashboardPayments() {
                           <ExternalLink className="w-4 h-4 text-gray-400" />
                         </Link>
                       </div>
+                      )}
                     </td>
                   </tr>
                   {/* Inline confirmation row */}

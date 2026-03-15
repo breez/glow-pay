@@ -125,6 +125,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse) {
       amountSats: p.amountSats,
       description: p.description,
       status: p.status,
+      type: p.type || 'incoming',
       metadata: p.metadata || null,
       createdAt: p.createdAt,
       expiresAt: p.expiresAt,

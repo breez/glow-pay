@@ -17,7 +17,8 @@ import {
   sweepAllFunds,
 } from './walletService'
 import type { SweepResult } from './walletService'
-import { savePayment, getMerchant } from '../store'
+import { getMerchant } from '../store'
+import { recordSweepViaApi } from '../api-client'
 
 const MAX_RECONNECT_ATTEMPTS = 3
 const RECONNECT_DELAY_MS = 2000
@@ -194,25 +195,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const sweepFunds = useCallback(async (destination: string, onProgress?: (msg: string) => void): Promise<SweepResult> => {
     if (!connected()) throw new Error('Wallet not connected')
     const result = await sweepAllFunds(destination, onProgress)
-    // Record sweep in payment history
+    // Record sweep server-side
     if (result.success) {
       const merchant = getMerchant()
-      const now = new Date().toISOString()
-      savePayment({
-        id: `sweep_${Date.now().toString(36)}`,
-        merchantId: merchant?.id || '',
-        amountMsats: result.balanceSats * 1000,
-        amountSats: result.balanceSats,
-        description: `Sweep to ${destination.length > 20 ? destination.slice(0, 20) + '...' : destination}`,
-        invoice: null,
-        verifyUrl: null,
-        status: 'completed',
-        type: 'sweep',
-        metadata: null,
-        createdAt: now,
-        paidAt: now,
-        expiresAt: now,
-      })
+      const activeKey = merchant?.apiKeys?.find(k => k.active)?.key || merchant?.apiKey
+      if (activeKey) {
+        const desc = `Sweep to ${destination.length > 20 ? destination.slice(0, 20) + '...' : destination}`
+        await recordSweepViaApi(activeKey, result.balanceSats, desc).catch(err => {
+          console.error('Failed to record sweep server-side:', err)
+        })
+      }
     }
     // Refresh balance after sweep
     setBalanceSats(await getBalance())

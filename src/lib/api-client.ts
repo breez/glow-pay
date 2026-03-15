@@ -98,6 +98,7 @@ export async function listPaymentsFromApi(apiKey: string): Promise<{
     amountSats: number
     description: string | null
     status: 'pending' | 'completed' | 'expired'
+    type?: 'incoming' | 'sweep'
     metadata: Record<string, unknown> | null
     createdAt: string
     expiresAt: string
@@ -119,6 +120,7 @@ export async function getPaymentFromApi(paymentId: string): Promise<{
     description: string | null
     invoice: string | null
     status: 'pending' | 'completed' | 'expired'
+    type?: 'incoming' | 'sweep'
     createdAt: string
     expiresAt: string
     paidAt: string | null
@@ -134,5 +136,37 @@ export async function getPaymentFromApi(paymentId: string): Promise<{
   error?: string
 }> {
   const res = await fetch(`${API_BASE}/payments/${paymentId}`)
+  return res.json()
+}
+
+export async function recordSweepViaApi(
+  apiKey: string,
+  amountSats: number,
+  description?: string,
+): Promise<{ success: boolean; data?: { paymentId: string }; error?: string }> {
+  const res = await fetch(`${API_BASE}/payments/sweep`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
+    },
+    body: JSON.stringify({ amountSats, description }),
+  })
+  return res.json()
+}
+
+export async function updatePaymentStatusViaApi(
+  apiKey: string,
+  paymentId: string,
+  status: 'completed' | 'expired',
+): Promise<{ success: boolean; error?: string }> {
+  const res = await fetch(`${API_BASE}/payments/${paymentId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
+    },
+    body: JSON.stringify({ status }),
+  })
   return res.json()
 }

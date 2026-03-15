@@ -91,6 +91,7 @@ export interface ServerPayment {
   invoice: string | null
   verifyUrl: string | null
   status: 'pending' | 'completed' | 'expired'
+  type?: 'incoming' | 'sweep'
   metadata: Record<string, unknown> | null
   createdAt: string
   paidAt: string | null
