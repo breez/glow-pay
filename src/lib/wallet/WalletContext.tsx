@@ -17,6 +17,7 @@ import {
   sweepAllFunds,
 } from './walletService'
 import type { SweepResult } from './walletService'
+import { savePayment, getMerchant } from '../store'
 
 const MAX_RECONNECT_ATTEMPTS = 3
 const RECONNECT_DELAY_MS = 2000
@@ -193,6 +194,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const sweepFunds = useCallback(async (destination: string, onProgress?: (msg: string) => void): Promise<SweepResult> => {
     if (!connected()) throw new Error('Wallet not connected')
     const result = await sweepAllFunds(destination, onProgress)
+    // Record sweep in payment history
+    if (result.success) {
+      const merchant = getMerchant()
+      const now = new Date().toISOString()
+      savePayment({
+        id: `sweep_${Date.now().toString(36)}`,
+        merchantId: merchant?.id || '',
+        amountMsats: result.balanceSats * 1000,
+        amountSats: result.balanceSats,
+        description: `Sweep to ${destination.length > 20 ? destination.slice(0, 20) + '...' : destination}`,
+        invoice: null,
+        verifyUrl: null,
+        status: 'completed',
+        type: 'sweep',
+        metadata: null,
+        createdAt: now,
+        paidAt: now,
+        expiresAt: now,
+      })
+    }
     // Refresh balance after sweep
     setBalanceSats(await getBalance())
     setWalletInfo(await getWalletInfo())

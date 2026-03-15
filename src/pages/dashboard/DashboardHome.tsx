@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, AlertCircle, Wallet, Zap, Plus, ArrowUpRight, Clock, CheckCircle2, XCircle } from 'lucide-react'
-import { getMerchant, getPayments, updatePaymentStatus } from '@/lib/store'
+import { ArrowRight, AlertCircle, Wallet, Zap, Plus, ArrowUpRight, ArrowDownRight, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import { getMerchant, getPayments, updatePaymentStatus, savePayment } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
-import { getPaymentFromApi } from '@/lib/api-client'
+import { getPaymentFromApi, listPaymentsFromApi } from '@/lib/api-client'
 import { useWallet } from '@/lib/wallet/WalletContext'
 import type { Merchant, Payment } from '@/lib/types'
 
 export function DashboardHome() {
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
-  const { balanceSats } = useWallet()
+  const { balanceSats, isSyncing } = useWallet()
 
   const loadPayments = () => {
     const allPayments = getPayments()
@@ -25,33 +25,70 @@ export function DashboardHome() {
   }
 
   useEffect(() => {
-    setMerchant(getMerchant())
-    const allPayments = loadPayments()
+    const m = getMerchant()
+    setMerchant(m)
+    loadPayments()
 
-    // Auto-verify pending payments against the server
-    const pending = allPayments.filter(p => p.status === 'pending' && new Date(p.expiresAt) >= new Date())
-    if (pending.length > 0) {
-      ;(async () => {
-        let changed = false
-        for (const p of pending) {
-          try {
-            const result = await getPaymentFromApi(p.id)
-            if (result.success && result.data) {
-              if (result.data.status === 'completed') {
-                updatePaymentStatus(p.id, 'completed', result.data.paidAt || new Date().toISOString())
-                changed = true
-              } else if (result.data.status === 'expired') {
-                updatePaymentStatus(p.id, 'expired')
-                changed = true
+    // Sync server-side payments (includes API-created ones like Boxed)
+    const syncAndVerify = async () => {
+      const activeKey = m?.apiKeys?.find(k => k.active)?.key || m?.apiKey
+      if (activeKey) {
+        try {
+          const result = await listPaymentsFromApi(activeKey)
+          if (result.success && result.data) {
+            const local = getPayments()
+            const localIds = new Set(local.map(p => p.id))
+            for (const sp of result.data) {
+              if (!localIds.has(sp.id)) {
+                savePayment({
+                  id: sp.id,
+                  merchantId: m!.id,
+                  amountMsats: sp.amountSats * 1000,
+                  amountSats: sp.amountSats,
+                  description: sp.description,
+                  status: sp.status,
+                  metadata: sp.metadata,
+                  createdAt: sp.createdAt,
+                  expiresAt: sp.expiresAt,
+                  paidAt: sp.paidAt,
+                  invoice: null,
+                  verifyUrl: null,
+                })
+              } else {
+                const localPayment = local.find(p => p.id === sp.id)
+                if (localPayment && localPayment.status === 'pending' && sp.status !== 'pending') {
+                  updatePaymentStatus(sp.id, sp.status, sp.paidAt || undefined)
+                }
               }
             }
-          } catch {
-            // best-effort
           }
+        } catch {
+          // best-effort
         }
-        if (changed) loadPayments()
-      })()
+      }
+
+      // Also verify any remaining pending payments individually
+      const allPayments = getPayments()
+      const pending = allPayments.filter(p => p.status === 'pending' && new Date(p.expiresAt) >= new Date())
+      for (const p of pending) {
+        try {
+          const result = await getPaymentFromApi(p.id)
+          if (result.success && result.data) {
+            if (result.data.status === 'completed') {
+              updatePaymentStatus(p.id, 'completed', result.data.paidAt || new Date().toISOString())
+            } else if (result.data.status === 'expired') {
+              updatePaymentStatus(p.id, 'expired')
+            }
+          }
+        } catch {
+          // best-effort
+        }
+      }
+
+      loadPayments()
     }
+
+    syncAndVerify()
   }, [])
 
   const completed = payments.filter(p => p.status === 'completed')
@@ -118,10 +155,17 @@ export function DashboardHome() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Balance</p>
-            <p className="text-3xl font-bold tabular-nums">
-              {formatSats(balanceSats)}
-              <span className="text-lg font-normal text-gray-500 ml-1.5">sats</span>
-            </p>
+            {isSyncing ? (
+              <div className="flex items-center gap-2 h-[36px]">
+                <div className="w-4 h-4 border-2 border-glow-400/30 border-t-glow-400 rounded-full animate-spin" />
+                <span className="text-sm text-gray-400">Syncing wallet...</span>
+              </div>
+            ) : (
+              <p className="text-3xl font-bold tabular-nums">
+                {formatSats(balanceSats)}
+                <span className="text-lg font-normal text-gray-500 ml-1.5">sats</span>
+              </p>
+            )}
           </div>
           <div className="w-11 h-11 rounded-xl bg-glow-400/20 flex items-center justify-center">
             <Wallet className="w-5 h-5 text-glow-400" />
@@ -186,23 +230,26 @@ export function DashboardHome() {
                 }`}
               >
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                  payment.type === 'sweep' ? 'bg-blue-500/15' :
                   payment.status === 'completed' ? 'bg-green-500/15' :
                   payment.status === 'expired' ? 'bg-red-500/10' :
                   'bg-orange-500/15'
                 }`}>
-                  {payment.status === 'completed' ? <CheckCircle2 className="w-4 h-4 text-green-400" /> :
+                  {payment.type === 'sweep' ? <ArrowDownRight className="w-4 h-4 text-blue-400" /> :
+                   payment.status === 'completed' ? <CheckCircle2 className="w-4 h-4 text-green-400" /> :
                    payment.status === 'expired' ? <XCircle className="w-4 h-4 text-red-400/70" /> :
                    <Clock className="w-4 h-4 text-orange-400" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{payment.description || 'Payment'}</p>
                   <p className="text-xs text-gray-600">
-                    {new Date(payment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                    {new Date(payment.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-bold tabular-nums">
-                    {payment.status === 'completed' && <span className="text-green-400">+</span>}
+                    {payment.type === 'sweep' ? <span className="text-blue-400">-</span> :
+                     payment.status === 'completed' ? <span className="text-green-400">+</span> : null}
                     {formatSats(payment.amountSats)}
                     <span className="text-xs font-normal text-gray-600 ml-1">sats</span>
                   </p>

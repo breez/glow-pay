@@ -69,7 +69,10 @@ export function getPayments(): Payment[] {
   const stored = localStorage.getItem(STORAGE_KEY_PAYMENTS)
   if (!stored) return []
   try {
-    return JSON.parse(stored)
+    const payments: Payment[] = JSON.parse(stored)
+    // Sort newest first by createdAt
+    payments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    return payments
   } catch {
     return []
   }
