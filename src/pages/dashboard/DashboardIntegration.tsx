@@ -407,7 +407,7 @@ export function DashboardIntegration() {
                 curl={`curl -X POST ${origin}/api/payments \\
   -H "Content-Type: application/json" \\
   -H "X-API-Key: ${displayKey}" \\
-  -d '{"amountSats": 1000, "description": "Order #123"}'`}
+  -d '{"amountSats": 1000, "description": "Order #123", "metadata": {"orderId": "abc"}}'`}
                 js={`const res = await fetch('${origin}/api/payments', {
   method: 'POST',
   headers: {
@@ -417,6 +417,7 @@ export function DashboardIntegration() {
   body: JSON.stringify({
     amountSats: 1000,
     description: 'Order #123',
+    metadata: { orderId: 'abc' },
   }),
 });
 
@@ -459,6 +460,7 @@ console.log(data.status); // 'pending' | 'completed' | 'expired'`}
     "amountSats": 1000,
     "description": "Order #123",
     "status": "completed",
+    "metadata": { "orderId": "abc", "item": "T-shirt" },
     "createdAt": "2025-01-01T00:00:00Z",
     "expiresAt": "2025-01-01T00:10:00Z",
     "paidAt": "2025-01-01T00:02:30Z",
