@@ -63,6 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       expiresAt: payment.expiresAt,
       paidAt: payment.paidAt,
       verifyUrl: payment.verifyUrl,
+      metadata: payment.metadata || null,
       merchant: merchant
         ? { storeName: merchant.storeName, redirectUrl: merchant.redirectUrl, brandColor: merchant.brandColor || null, brandBackground: merchant.brandBackground || null, logoUrl: merchant.logoUrl || null }
         : null,
