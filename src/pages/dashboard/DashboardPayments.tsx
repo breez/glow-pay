@@ -68,14 +68,12 @@ export function DashboardPayments() {
 
           // Verify pending payments via individual GET (triggers server-side LNURL-verify)
           const pending = list.filter(p => p.status === 'pending')
-          let changed = false
           for (const p of pending) {
             try {
               const r = await getPaymentFromApi(p.id)
               if (r.success && r.data && r.data.status !== 'pending') {
                 p.status = r.data.status
                 p.paidAt = r.data.paidAt
-                changed = true
               }
             } catch {
               // best-effort
