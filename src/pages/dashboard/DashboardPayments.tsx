@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, ExternalLink, Copy, Check, CheckCircle, RefreshCw, Loader2, Zap } from 'lucide-react'
-import { getPayments, getMerchant, updatePaymentStatus } from '@/lib/store'
+import { getPayments, getMerchant, updatePaymentStatus, savePayment } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
-import { getPaymentFromApi } from '@/lib/api-client'
+import { getPaymentFromApi, listPaymentsFromApi } from '@/lib/api-client'
 import type { Payment } from '@/lib/types'
 
 const statusLabel = (status: string) => {
@@ -61,7 +61,48 @@ export function DashboardPayments() {
   }
 
   useEffect(() => {
+    // Fetch server-side payments (includes API-created ones) and merge into localStorage
+    const syncServerPayments = async () => {
+      const activeKey = merchant?.apiKeys?.find(k => k.active)?.key || merchant?.apiKey
+      if (!activeKey) return
+      try {
+        const result = await listPaymentsFromApi(activeKey)
+        if (result.success && result.data) {
+          const local = getPayments()
+          const localIds = new Set(local.map(p => p.id))
+          for (const sp of result.data) {
+            if (!localIds.has(sp.id)) {
+              savePayment({
+                id: sp.id,
+                merchantId: merchant.id,
+                amountMsats: sp.amountSats * 1000,
+                amountSats: sp.amountSats,
+                description: sp.description,
+                status: sp.status,
+                metadata: sp.metadata,
+                createdAt: sp.createdAt,
+                expiresAt: sp.expiresAt,
+                paidAt: sp.paidAt,
+                invoice: null,
+                verifyUrl: null,
+              })
+            } else {
+              // Update status if server has newer info
+              const localPayment = local.find(p => p.id === sp.id)
+              if (localPayment && localPayment.status === 'pending' && sp.status !== 'pending') {
+                updatePaymentStatus(sp.id, sp.status, sp.paidAt || undefined)
+              }
+            }
+          }
+        }
+      } catch {
+        // best-effort sync
+      }
+      refreshPayments()
+    }
+
     refreshPayments()
+    syncServerPayments()
     verifyPendingPayments(getPayments())
   }, [])
 

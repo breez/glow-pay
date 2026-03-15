@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getMerchantByApiKey, savePaymentToKv } from '../_lib/redis.js'
+import { getMerchantByApiKey, savePaymentToKv, getPaymentsByMerchant } from '../_lib/redis.js'
 import { sendWebhook } from '../_lib/webhook.js'
 import { fetchLnurlPayInfo, requestInvoice, satsToMsats } from '../../src/lib/lnurl.js'
 
@@ -8,6 +8,10 @@ const PAYMENT_EXPIRY_SECS = 600
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
     return res.status(200).end()
+  }
+
+  if (req.method === 'GET') {
+    return handleGet(req, res)
   }
 
   if (req.method !== 'POST') {
@@ -99,4 +103,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error: err instanceof Error ? err.message : 'Failed to create payment',
     })
   }
+}
+
+async function handleGet(req: VercelRequest, res: VercelResponse) {
+  const apiKey = req.headers['x-api-key'] as string
+  if (!apiKey) {
+    return res.status(401).json({ error: 'Missing X-API-Key header' })
+  }
+
+  const merchant = await getMerchantByApiKey(apiKey)
+  if (!merchant) {
+    return res.status(401).json({ error: 'Invalid API key' })
+  }
+
+  const payments = await getPaymentsByMerchant(merchant.id)
+
+  return res.status(200).json({
+    success: true,
+    data: payments.map(p => ({
+      id: p.id,
+      amountSats: p.amountSats,
+      description: p.description,
+      status: p.status,
+      metadata: p.metadata || null,
+      createdAt: p.createdAt,
+      expiresAt: p.expiresAt,
+      paidAt: p.paidAt,
+    })),
+  })
 }

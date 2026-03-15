@@ -102,6 +102,22 @@ export async function getPaymentFromKv(paymentId: string): Promise<ServerPayment
 }
 
 export async function savePaymentToKv(payment: ServerPayment): Promise<void> {
-  // 24h TTL
-  await getRedis().set(`payment:${payment.id}`, payment, { ex: 86400 })
+  const r = getRedis()
+  // Completed payments get 30-day TTL, others 24h
+  const ttl = payment.status === 'completed' ? 30 * 86400 : 86400
+  await r.set(`payment:${payment.id}`, payment, { ex: ttl })
+  // Index by merchant for dashboard listing
+  await r.zadd(`merchant_payments:${payment.merchantId}`, {
+    score: new Date(payment.createdAt).getTime(),
+    member: payment.id,
+  })
+}
+
+export async function getPaymentsByMerchant(merchantId: string, limit = 100): Promise<ServerPayment[]> {
+  const r = getRedis()
+  const ids = await r.zrange(`merchant_payments:${merchantId}`, 0, limit - 1, { rev: true })
+  if (!ids.length) return []
+  const keys = (ids as string[]).map(id => `payment:${id}`)
+  const payments = await r.mget<(ServerPayment | null)[]>(...keys)
+  return payments.filter((p): p is ServerPayment => p !== null)
 }

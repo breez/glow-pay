@@ -91,6 +91,26 @@ export async function createPaymentViaApi(
   return res.json()
 }
 
+export async function listPaymentsFromApi(apiKey: string): Promise<{
+  success: boolean
+  data?: Array<{
+    id: string
+    amountSats: number
+    description: string | null
+    status: 'pending' | 'completed' | 'expired'
+    metadata: Record<string, unknown> | null
+    createdAt: string
+    expiresAt: string
+    paidAt: string | null
+  }>
+  error?: string
+}> {
+  const res = await fetch(`${API_BASE}/payments`, {
+    headers: { 'X-API-Key': apiKey },
+  })
+  return res.json()
+}
+
 export async function getPaymentFromApi(paymentId: string): Promise<{
   success: boolean
   data?: {
