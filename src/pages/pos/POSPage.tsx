@@ -287,9 +287,13 @@ export function POSPage() {
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-glow-400/15 flex items-center justify-center">
-            <Zap className="w-4.5 h-4.5 text-glow-400" />
-          </div>
+          {merchant?.logoUrl ? (
+            <img src={merchant.logoUrl} alt="" className="w-8 h-8 rounded-lg object-contain" />
+          ) : (
+            <div className="w-8 h-8 rounded-lg bg-glow-400/15 flex items-center justify-center">
+              <Zap className="w-4.5 h-4.5 text-glow-400" />
+            </div>
+          )}
           <span className="font-semibold text-white truncate max-w-[160px]">
             {merchant?.storeName || 'POS'}
           </span>
