@@ -24,13 +24,13 @@ export function POSCart({ items, currency, rate, onUpdateQuantity, onRemove, onC
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-surface-800 border-t border-white/[0.06] rounded-t-2xl w-full max-w-lg max-h-[70vh] flex flex-col"
+        className="bg-surface-800 border border-white/[0.06] rounded-2xl w-full max-w-sm max-h-[80vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-white/[0.06]">
           <h3 className="text-lg font-semibold">Cart ({items.reduce((s, c) => s + c.quantity, 0)})</h3>
           <div className="flex items-center gap-3">
             {items.length > 0 && (
@@ -84,7 +84,7 @@ export function POSCart({ items, currency, rate, onUpdateQuantity, onRemove, onC
 
         {/* Total */}
         {items.length > 0 && (
-          <div className="p-4 border-t border-white/[0.06]">
+          <div className="px-4 pb-4 pt-3 border-t border-white/[0.06]">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-400">Total</span>
               <span className="text-lg font-bold text-white">{formatPrice(total)}</span>

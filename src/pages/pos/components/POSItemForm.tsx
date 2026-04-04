@@ -89,9 +89,9 @@ export function POSItemForm({ item, currency: initialCurrency, rate, onSave, onC
   }
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-surface-800 border border-white/[0.06] rounded-t-2xl sm:rounded-2xl w-full max-w-sm"
+        className="bg-surface-800 border border-white/[0.06] rounded-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}

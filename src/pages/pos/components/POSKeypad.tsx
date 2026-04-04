@@ -11,7 +11,6 @@ export function POSKeypad({ value, onChange, currency }: POSKeypadProps) {
     if (value === '0' && digit !== '.') {
       onChange(digit)
     } else {
-      // For USD allow one decimal point and max 2 decimal places
       if (digit === '.') {
         if (currency === 'SAT' || value.includes('.')) return
         onChange(value + '.')
@@ -39,53 +38,39 @@ export function POSKeypad({ value, onChange, currency }: POSKeypadProps) {
     ? `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: value.includes('.') ? (value.split('.')[1]?.length || 0) : 0, maximumFractionDigits: 2 })}`
     : Number(value).toLocaleString()
 
+  const btnClass = "aspect-square rounded-2xl bg-surface-800/80 border border-white/[0.06] text-2xl font-semibold text-white hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all"
+
   return (
-    <div className="flex flex-col items-center flex-1 px-6 pt-6">
-      {/* Amount display */}
-      <div className="flex-1 flex flex-col items-center justify-center w-full">
-        <p className="text-5xl font-bold tracking-tight tabular-nums text-white mb-1">
+    <div className="flex flex-col items-center flex-1 px-6 min-h-0">
+      {/* Amount display — compact */}
+      <div className="py-4 text-center shrink-0">
+        <p className="text-3xl font-bold tracking-tight tabular-nums text-white">
           {displayValue}
         </p>
-        <p className="text-sm text-gray-500">
+        <p className="text-xs text-gray-500 mt-0.5">
           {currency === 'SAT' ? 'sats' : 'USD'}
         </p>
       </div>
 
-      {/* Numpad */}
-      <div className="grid grid-cols-3 gap-2.5 w-full max-w-xs pb-2">
+      {/* Numpad — fills remaining space */}
+      <div className="grid grid-cols-3 gap-2 w-full max-w-xs flex-1 pb-1">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(digit => (
-          <button
-            key={digit}
-            onClick={() => handleDigit(digit)}
-            className="h-16 rounded-2xl bg-surface-800/80 border border-white/[0.06] text-2xl font-semibold text-white hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all"
-          >
+          <button key={digit} onClick={() => handleDigit(digit)} className={btnClass}>
             {digit}
           </button>
         ))}
-        <button
-          onClick={handleClear}
-          className="h-16 rounded-2xl bg-surface-800/80 border border-white/[0.06] text-sm font-semibold text-gray-400 hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all"
-        >
+        <button onClick={handleClear} className={`${btnClass} text-sm !font-semibold !text-gray-400`}>
           C
         </button>
-        <button
-          onClick={() => handleDigit('0')}
-          className="h-16 rounded-2xl bg-surface-800/80 border border-white/[0.06] text-2xl font-semibold text-white hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all"
-        >
+        <button onClick={() => handleDigit('0')} className={btnClass}>
           0
         </button>
         {currency === 'USD' ? (
-          <button
-            onClick={() => handleDigit('.')}
-            className="h-16 rounded-2xl bg-surface-800/80 border border-white/[0.06] text-2xl font-semibold text-white hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all"
-          >
+          <button onClick={() => handleDigit('.')} className={btnClass}>
             .
           </button>
         ) : (
-          <button
-            onClick={handleBackspace}
-            className="h-16 rounded-2xl bg-surface-800/80 border border-white/[0.06] text-gray-400 hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all flex items-center justify-center"
-          >
+          <button onClick={handleBackspace} className={`${btnClass} !text-gray-400 flex items-center justify-center`}>
             <Delete className="w-5 h-5" />
           </button>
         )}
