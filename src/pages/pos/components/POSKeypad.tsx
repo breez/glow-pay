@@ -56,7 +56,7 @@ export function POSKeypad({ value, onChange, currency }: POSKeypadProps) {
       </div>
 
       {/* Numpad — square buttons, fixed max width */}
-      <div className="grid grid-cols-3 gap-2 w-full max-w-[280px]">
+      <div className="grid grid-cols-3 gap-2 w-full max-w-[320px]">
         <button onClick={() => handleDigit('1')} className={btn}>1</button>
         <button onClick={() => handleDigit('2')} className={btn}>2</button>
         <button onClick={() => handleDigit('3')} className={btn}>3</button>

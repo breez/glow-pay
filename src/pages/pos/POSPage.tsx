@@ -49,6 +49,35 @@ export function POSPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { rate } = useExchangeRate()
 
+  // Dynamic PWA manifest with correct start_url
+  useEffect(() => {
+    if (!merchantId) return
+    const manifest = {
+      name: 'Glow Pay POS',
+      short_name: 'Glow POS',
+      description: 'Accept Bitcoin payments at your point of sale',
+      start_url: `/pos/${merchantId}`,
+      display: 'standalone',
+      background_color: '#0a0a0f',
+      theme_color: '#a855f7',
+      orientation: 'portrait',
+      icons: [{ src: '/favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
+    }
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    // Replace static manifest link
+    let link = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null
+    if (link) {
+      link.href = url
+    } else {
+      link = document.createElement('link')
+      link.rel = 'manifest'
+      link.href = url
+      document.head.appendChild(link)
+    }
+    return () => URL.revokeObjectURL(url)
+  }, [merchantId])
+
   // Load merchant info
   useEffect(() => {
     if (!merchantId) {
