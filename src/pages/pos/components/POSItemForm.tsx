@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Minus, Plus } from 'lucide-react'
+import { X } from 'lucide-react'
 import type { POSItem } from '@/lib/pos-store'
 import { createPOSItem, savePOSItem } from '@/lib/pos-store'
 import { usdToSats } from '@/lib/use-exchange-rate'
@@ -15,8 +15,10 @@ interface POSItemFormProps {
 }
 
 export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFormProps) {
-  // When editing, use the item's original currency; when creating, use the POS toggle
-  const effectiveCurrency = item?.priceUsd ? 'USD' : currency
+  const [itemCurrency, setItemCurrency] = useState<'SAT' | 'USD'>(() => {
+    if (item?.priceUsd) return 'USD'
+    return currency
+  })
   const [name, setName] = useState(item?.name || '')
   const [price, setPrice] = useState(() => {
     if (!item) return ''
@@ -26,13 +28,7 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
   const [emoji, setEmoji] = useState(item?.emoji || '')
   const [sku, setSku] = useState(item?.sku || '')
 
-  const priceStep = effectiveCurrency === 'USD' ? 0.5 : 100
   const priceNum = parseFloat(price) || 0
-
-  const adjustPrice = (delta: number) => {
-    const next = Math.max(0, priceNum + delta)
-    setPrice(effectiveCurrency === 'USD' ? next.toFixed(2) : next.toString())
-  }
 
   const handlePriceInput = (val: string) => {
     if (val === '' || /^\d*\.?\d*$/.test(val)) {
@@ -47,7 +43,7 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
     let priceSats: number
     let priceUsd: number | undefined
 
-    if (effectiveCurrency === 'USD' && rate) {
+    if (itemCurrency === 'USD' && rate) {
       priceUsd = priceNum
       priceSats = usdToSats(priceNum, rate)
     } else {
@@ -128,33 +124,24 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
             />
           </div>
 
-          {/* Price with stepper */}
+          {/* Price + currency toggle */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              Price ({effectiveCurrency === 'USD' ? 'USD' : 'sats'})
-            </label>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Price</label>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => adjustPrice(-priceStep)}
-                className="w-11 h-11 rounded-xl bg-surface-700 border border-white/[0.06] flex items-center justify-center text-gray-400 hover:text-white hover:bg-surface-600 transition-colors shrink-0"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
               <input
                 type="text"
                 inputMode="decimal"
                 value={price}
                 onChange={e => handlePriceInput(e.target.value)}
-                placeholder={effectiveCurrency === 'USD' ? '5.00' : '500'}
-                className="flex-1 h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm text-center focus:outline-none focus:border-glow-400 transition-colors"
+                placeholder={itemCurrency === 'USD' ? '5.00' : '500'}
+                className="flex-1 h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-glow-400 transition-colors"
               />
               <button
                 type="button"
-                onClick={() => adjustPrice(priceStep)}
-                className="w-11 h-11 rounded-xl bg-surface-700 border border-white/[0.06] flex items-center justify-center text-gray-400 hover:text-white hover:bg-surface-600 transition-colors shrink-0"
+                onClick={() => { setItemCurrency(prev => prev === 'SAT' ? 'USD' : 'SAT'); setPrice('') }}
+                className="h-11 px-4 rounded-xl bg-surface-700 border border-white/[0.06] text-xs font-bold text-gray-300 hover:text-white hover:bg-surface-600 transition-colors shrink-0"
               >
-                <Plus className="w-4 h-4" />
+                {itemCurrency === 'USD' ? 'USD' : 'sats'}
               </button>
             </div>
           </div>
