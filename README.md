@@ -130,12 +130,14 @@ A mobile-first POS interface for accepting in-person Lightning payments. Enable 
 ### Features
 
 - **Keypad + Items tabs** — manual amount entry or tap-to-add from a catalog
-- **Item catalog** — name, price, emoji, SKU. Stored locally on the device
-- **CSV import/export** — bulk manage items via the overflow menu
+- **Item catalog** — name, price, emoji, SKU. Items can be priced in SAT or USD. Stored locally on the device
+- **Search + sort** — filter by name or SKU, sort by name or price (ascending/descending)
+- **CSV import/export** — bulk manage items via the overflow menu. Format: `name,price_sats,emoji,sku`
 - **Cart** — quantity controls, running total, clear all
-- **SAT/USD toggle** — live exchange rate from Yadio API (same source as Breez SDK)
+- **SAT/USD toggle** — live BTC/USD rate from Yadio API (`/exrates/BTC`). USD-priced items convert to sats at charge time using the current rate
+- **PWA** — dynamic manifest with merchant-specific `start_url`, installable via "Add to Home Screen"
 - **No authentication required** — the POS page is public. Only the "Enable POS" toggle in Settings requires merchant access
-- **Printable receipts** — optimized for thermal printers (80mm width)
+- **Printable receipts** — line items shown in original currency, optimized for thermal printers (80mm width)
 
 ### POS API
 
