@@ -104,8 +104,12 @@ export function POSPage() {
 
   const clearCart = useCallback(() => setCart([]), [])
 
-  // Total calculation
-  const cartTotalSats = cart.reduce((sum, ci) => sum + ci.item.priceSats * ci.quantity, 0)
+  // Total calculation — use live rate for USD-priced items
+  const itemToSats = (item: POSItem): number => {
+    if (item.priceUsd && rate) return usdToSats(item.priceUsd, rate)
+    return item.priceSats
+  }
+  const cartTotalSats = cart.reduce((sum, ci) => sum + itemToSats(ci.item) * ci.quantity, 0)
   const cartItemCount = cart.reduce((sum, ci) => sum + ci.quantity, 0)
 
   const getChargeAmountSats = (): number => {

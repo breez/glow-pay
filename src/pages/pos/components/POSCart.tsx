@@ -14,7 +14,11 @@ interface POSCartProps {
 }
 
 export function POSCart({ items, currency, rate, onUpdateQuantity, onRemove, onClear, onClose }: POSCartProps) {
-  const total = items.reduce((sum, ci) => sum + ci.item.priceSats * ci.quantity, 0)
+  const itemToSats = (item: CartItem['item']): number => {
+    if (item.priceUsd && rate) return Math.round((item.priceUsd / rate) * 100_000_000)
+    return item.priceSats
+  }
+  const total = items.reduce((sum, ci) => sum + itemToSats(ci.item) * ci.quantity, 0)
 
   const formatItemPrice = (item: CartItem['item']) => {
     if (item.priceUsd) return `$${formatUsd(item.priceUsd)}`
