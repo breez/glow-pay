@@ -11,6 +11,7 @@ The simplest way to accept bitcoin payments on your website. No server is requir
 - **Webhooks**: Get notified on payment events with HMAC-SHA256 signed payloads
 - **Checkout Branding**: Custom logo, colors, and background on payment pages
 - **Sweep Funds**: Send your full balance to any Lightning address
+- **Point of Sale**: Mobile-first POS page for in-person payments, installable as a PWA
 
 ## How It Works
 
@@ -50,6 +51,9 @@ src/
     LandingPage.tsx          # Public landing page
     SetupWizard.tsx          # Account creation / restore flow
     CheckoutPage.tsx         # Customer-facing payment page
+    pos/
+      POSPage.tsx            # POS state machine (idle → charging → paid)
+      components/            # Keypad, Items, Cart, Charging, Receipt
     dashboard/
       DashboardLayout.tsx    # Sidebar + mobile nav shell
       DashboardHome.tsx      # Balance overview + recent activity
@@ -63,6 +67,9 @@ src/
     api-client.ts            # Client-side API helpers
     lnurl.ts                 # LNURL utilities
     types.ts                 # Shared types
+    pos-store.ts             # POS item catalog (localStorage)
+    pos-csv.ts               # CSV import/export for items
+    use-exchange-rate.ts     # BTC/USD rate hook (Yadio API)
     wallet/
       walletService.ts       # SDK connection, balance, sweep funds
       WalletContext.tsx       # React context, event handling, reconnection
@@ -70,6 +77,7 @@ src/
 api/                         # Vercel serverless functions
   payments.ts                # POST /api/payments, GET /api/payments/:id
   merchants.ts               # POST /api/merchants, GET /api/merchants
+  pos/[merchantId].ts        # GET/POST /api/pos/:merchantId (POS charges)
   _lib/
     auth.ts                  # Server-side auth verification
     redis.ts                 # Upstash Redis client
@@ -106,6 +114,40 @@ Configure a webhook URL in the Integration tab. Events:
 - `payment.expired` — invoice expired
 
 All webhooks are signed with HMAC-SHA256 via the `X-Glow-Signature` header.
+
+## Point of Sale (POS)
+
+A mobile-first POS interface for accepting in-person Lightning payments. Enable it from **Settings > Point of Sale** in the dashboard.
+
+### How it works
+
+1. **Enable POS** in Settings — a public URL is generated: `glow-pay.co/pos/:merchantId`
+2. **Open on any device** — phone, tablet, or counter display. Install as a PWA via "Add to Home Screen"
+3. **Charge customers** using the keypad (manual amount) or items catalog (pre-configured menu)
+4. **Customer scans** the QR code with any Lightning wallet
+5. **Receipt** is shown on confirmation — printable via the browser's print dialog
+
+### Features
+
+- **Keypad + Items tabs** — manual amount entry or tap-to-add from a catalog
+- **Item catalog** — name, price, emoji, SKU. Stored locally on the device
+- **CSV import/export** — bulk manage items via the overflow menu
+- **Cart** — quantity controls, running total, clear all
+- **SAT/USD toggle** — live exchange rate from Yadio API (same source as Breez SDK)
+- **No authentication required** — the POS page is public. Only the "Enable POS" toggle in Settings requires merchant access
+- **Printable receipts** — optimized for thermal printers (80mm width)
+
+### POS API
+
+Create a charge without authentication (POS must be enabled for the merchant):
+
+```bash
+curl -X POST https://glow-pay.co/api/pos/MERCHANT_ID \
+  -H "Content-Type: application/json" \
+  -d '{"amountSats": 5000, "description": "Coffee", "items": [{"name": "Espresso", "quantity": 2, "priceSats": 2500}]}'
+```
+
+POS payments appear in the dashboard with `source: "pos"` in their metadata.
 
 ## Security
 
