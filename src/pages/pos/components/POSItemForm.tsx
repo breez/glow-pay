@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Minus, Plus } from 'lucide-react'
 import type { POSItem } from '@/lib/pos-store'
 import { createPOSItem, savePOSItem } from '@/lib/pos-store'
 import { usdToSats } from '@/lib/use-exchange-rate'
+
+const EMOJI_PRESETS = ['☕', '🍺', '🍕', '🌮', '🍔', '🥐', '🧁', '🥤', '🍷', '🎫', '👕', '📦']
 
 interface POSItemFormProps {
   item: POSItem | null
@@ -22,9 +24,16 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
   const [emoji, setEmoji] = useState(item?.emoji || '')
   const [sku, setSku] = useState(item?.sku || '')
 
+  const priceStep = currency === 'USD' ? 0.5 : 100
+  const priceNum = parseFloat(price) || 0
+
+  const adjustPrice = (delta: number) => {
+    const next = Math.max(0, priceNum + delta)
+    setPrice(currency === 'USD' ? next.toFixed(2) : next.toString())
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const priceNum = parseFloat(price)
     if (!name.trim() || isNaN(priceNum) || priceNum <= 0) return
 
     let priceSats: number
@@ -68,38 +77,62 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
         </div>
 
         <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4">
-          {/* Emoji + Name row */}
-          <div className="flex gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">Icon</label>
+          {/* Icon picker */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Icon</label>
+            <div className="flex flex-wrap gap-1.5">
+              {EMOJI_PRESETS.map(e => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => setEmoji(e)}
+                  className={`w-10 h-10 rounded-xl text-lg flex items-center justify-center transition-all ${
+                    emoji === e
+                      ? 'bg-glow-400/20 border-2 border-glow-400 scale-110'
+                      : 'bg-surface-700 border border-white/[0.06] hover:bg-surface-600'
+                  }`}
+                >
+                  {e}
+                </button>
+              ))}
+              {/* Custom input */}
               <input
                 type="text"
-                value={emoji}
+                value={!EMOJI_PRESETS.includes(emoji) ? emoji : ''}
                 onChange={e => setEmoji(e.target.value)}
-                placeholder="📦"
+                placeholder="..."
                 maxLength={4}
-                className="w-14 h-11 px-2 bg-surface-700 border border-white/[0.06] rounded-xl text-center text-xl focus:outline-none focus:border-glow-400 transition-colors"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="e.g. Espresso"
-                className="w-full h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-glow-400 transition-colors"
-                autoFocus
+                className="w-10 h-10 px-1 bg-surface-700 border border-white/[0.06] rounded-xl text-center text-lg focus:outline-none focus:border-glow-400 transition-colors"
               />
             </div>
           </div>
 
-          {/* Price + SKU row */}
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">
-                Price ({currency === 'USD' ? 'USD' : 'sats'})
-              </label>
+          {/* Name */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Espresso"
+              className="w-full h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-glow-400 transition-colors"
+              autoFocus
+            />
+          </div>
+
+          {/* Price with stepper */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">
+              Price ({currency === 'USD' ? 'USD' : 'sats'})
+            </label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => adjustPrice(-priceStep)}
+                className="w-11 h-11 rounded-xl bg-surface-700 border border-white/[0.06] flex items-center justify-center text-gray-400 hover:text-white hover:bg-surface-600 transition-colors shrink-0"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
               <input
                 type="number"
                 value={price}
@@ -107,19 +140,28 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
                 placeholder={currency === 'USD' ? '5.00' : '500'}
                 step={currency === 'USD' ? '0.01' : '1'}
                 min="0"
-                className="w-full h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-glow-400 transition-colors"
+                className="flex-1 h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm text-center focus:outline-none focus:border-glow-400 transition-colors"
               />
+              <button
+                type="button"
+                onClick={() => adjustPrice(priceStep)}
+                className="w-11 h-11 rounded-xl bg-surface-700 border border-white/[0.06] flex items-center justify-center text-gray-400 hover:text-white hover:bg-surface-600 transition-colors shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
-            <div className="flex-1">
-              <label className="block text-xs font-medium text-gray-500 mb-1.5">SKU</label>
-              <input
-                type="text"
-                value={sku}
-                onChange={e => setSku(e.target.value)}
-                placeholder="Optional"
-                className="w-full h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-glow-400 transition-colors"
-              />
-            </div>
+          </div>
+
+          {/* SKU */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">SKU (optional)</label>
+            <input
+              type="text"
+              value={sku}
+              onChange={e => setSku(e.target.value)}
+              placeholder="e.g. DRK-001"
+              className="w-full h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-glow-400 transition-colors"
+            />
           </div>
 
           <button
