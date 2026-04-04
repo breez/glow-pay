@@ -166,11 +166,13 @@ export function POSPage() {
     setCharging(true)
 
     const description = tab === 'items' && cart.length > 0
-      ? cart.map(c => `${c.item.emoji} ${c.item.name} x${c.quantity}`).join(', ')
+      ? cart.length <= 3
+        ? cart.map(c => `${c.item.emoji} ${c.item.name} x${c.quantity}`).join(', ')
+        : `${cartItemCount} items`
       : null
 
     const chargeItems = tab === 'items' && cart.length > 0
-      ? cart.map(c => ({ name: c.item.name, quantity: c.quantity, priceSats: c.item.priceSats }))
+      ? cart.map(c => ({ name: c.item.name, quantity: c.quantity, priceSats: itemToSats(c.item) }))
       : undefined
 
     try {

@@ -41,12 +41,17 @@ export function POSReceipt({ amountSats, paymentId, items, storeName, rate, onNe
           {items.length > 0 && (
             <div className="mb-3">
               <div className="border-b border-gray-300 mb-2 pb-1">
-                {items.map(ci => (
-                  <div key={ci.item.id} className="flex justify-between text-xs py-0.5">
-                    <span>{ci.item.emoji} {ci.item.name} x{ci.quantity}</span>
-                    <span>{formatSats(ci.item.priceSats * ci.quantity)}</span>
-                  </div>
-                ))}
+                {items.map(ci => {
+                  const lineTotal = ci.item.priceUsd
+                    ? `$${formatUsd(ci.item.priceUsd * ci.quantity)}`
+                    : formatSats(ci.item.priceSats * ci.quantity)
+                  return (
+                    <div key={ci.item.id} className="flex justify-between text-xs py-0.5">
+                      <span>{ci.item.emoji} {ci.item.name} x{ci.quantity}</span>
+                      <span>{lineTotal}</span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
