@@ -235,7 +235,7 @@ export function POSPage() {
       const csv = reader.result as string
       const result = parseCSVToItems(csv)
       if (result.items.length === 0) {
-        setImportToast('No valid items found in CSV')
+        setImportToast('error:No valid items found in CSV')
         setTimeout(() => setImportToast(null), 3000)
         return
       }
@@ -244,7 +244,7 @@ export function POSPage() {
       for (const imported of result.items) {
         const idx = merged.findIndex(e => e.name.toLowerCase() === imported.name.toLowerCase())
         if (idx >= 0) {
-          merged[idx] = { ...merged[idx], priceSats: imported.priceSats, emoji: imported.emoji, updatedAt: imported.updatedAt }
+          merged[idx] = { ...merged[idx], priceSats: imported.priceSats, priceUsd: imported.priceUsd, emoji: imported.emoji, sku: imported.sku, updatedAt: imported.updatedAt }
         } else {
           merged.push(imported)
         }
@@ -424,8 +424,12 @@ export function POSPage() {
         </div>
       )}
       {importToast && (
-        <div className="mx-4 mt-3 bg-green-500/20 border border-green-500/30 rounded-xl p-3 text-sm text-green-400">
-          {importToast}
+        <div className={`mx-4 mt-3 rounded-xl p-3 text-sm ${
+          importToast.startsWith('error:')
+            ? 'bg-red-500/20 border border-red-500/30 text-red-400'
+            : 'bg-green-500/20 border border-green-500/30 text-green-400'
+        }`}>
+          {importToast.replace('error:', '')}
         </div>
       )}
 

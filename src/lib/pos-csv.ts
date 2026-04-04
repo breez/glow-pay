@@ -9,9 +9,9 @@ function escapeCSV(value: string): string {
 }
 
 export function exportItemsToCSV(items: POSItem[]): string {
-  const header = 'name,price_sats,emoji,sku'
+  const header = 'name,price_sats,emoji,sku,price_usd'
   const rows = items.map(item =>
-    `${escapeCSV(item.name)},${item.priceSats},${item.emoji || ''},${item.sku || ''}`
+    `${escapeCSV(item.name)},${item.priceSats},${escapeCSV(item.emoji || '')},${escapeCSV(item.sku || '')},${item.priceUsd || ''}`
   )
   return [header, ...rows].join('\n')
 }
@@ -50,13 +50,14 @@ export function parseCSVToItems(csv: string): CSVParseResult {
     const priceSats = parseInt(fields[1]?.trim(), 10)
     const emoji = fields[2]?.trim() || '📦'
     const sku = fields[3]?.trim() || undefined
+    const priceUsd = fields[4]?.trim() ? parseFloat(fields[4].trim()) : undefined
 
     if (!name || isNaN(priceSats) || priceSats < 1) {
       skipped++
       continue
     }
 
-    items.push(createPOSItem(name, priceSats, emoji, undefined, sku))
+    items.push(createPOSItem(name, priceSats, emoji, priceUsd, sku))
   }
 
   return { items, skipped }
