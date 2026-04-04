@@ -3,7 +3,7 @@ import { Search, Plus, Pencil, Trash2, MoreVertical, ArrowUpDown } from 'lucide-
 import type { POSItem, CartItem } from '@/lib/pos-store'
 import { deletePOSItem } from '@/lib/pos-store'
 import { formatSats } from '@/lib/lnurl'
-import { satsToUsd, formatUsd } from '@/lib/use-exchange-rate'
+import { formatUsd } from '@/lib/use-exchange-rate'
 import { POSItemForm } from './POSItemForm'
 
 interface POSItemsProps {
@@ -53,9 +53,9 @@ export function POSItems({ items, onItemsChange, onAddToCart, cart, currency, ra
   }
 
   const formatPrice = (item: POSItem) => {
-    if (currency === 'USD' && rate) {
-      const usd = satsToUsd(item.priceSats, rate)
-      if (usd >= 0.01) return `$${formatUsd(usd)}`
+    // Show item in its original currency
+    if (item.priceUsd) {
+      return `$${formatUsd(item.priceUsd)}`
     }
     return `${formatSats(item.priceSats)} sats`
   }

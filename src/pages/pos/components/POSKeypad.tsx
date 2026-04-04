@@ -38,7 +38,7 @@ export function POSKeypad({ value, onChange, currency }: POSKeypadProps) {
     ? `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: value.includes('.') ? (value.split('.')[1]?.length || 0) : 0, maximumFractionDigits: 2 })}`
     : Number(value).toLocaleString()
 
-  const btn = "h-14 rounded-2xl bg-surface-800/80 border border-white/[0.06] text-2xl font-semibold text-white hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all"
+  const btn = "h-16 rounded-2xl bg-surface-800/80 border border-white/[0.06] text-2xl font-semibold text-white hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all"
 
   return (
     <div className="flex flex-col items-center justify-center flex-1 px-6 min-h-0 overflow-hidden">

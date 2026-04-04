@@ -16,7 +16,12 @@ interface POSCartProps {
 export function POSCart({ items, currency, rate, onUpdateQuantity, onRemove, onClear, onClose }: POSCartProps) {
   const total = items.reduce((sum, ci) => sum + ci.item.priceSats * ci.quantity, 0)
 
-  const formatPrice = (sats: number) => {
+  const formatItemPrice = (item: CartItem['item']) => {
+    if (item.priceUsd) return `$${formatUsd(item.priceUsd)}`
+    return `${formatSats(item.priceSats)} sats`
+  }
+
+  const formatTotal = (sats: number) => {
     if (currency === 'USD' && rate) {
       return `$${formatUsd(satsToUsd(sats, rate))}`
     }
@@ -54,7 +59,7 @@ export function POSCart({ items, currency, rate, onUpdateQuantity, onRemove, onC
                 <span className="text-xl">{ci.item.emoji}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{ci.item.name}</p>
-                  <p className="text-xs text-gray-400">{formatPrice(ci.item.priceSats)}</p>
+                  <p className="text-xs text-gray-400">{formatItemPrice(ci.item)}</p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -87,7 +92,7 @@ export function POSCart({ items, currency, rate, onUpdateQuantity, onRemove, onC
           <div className="px-4 pb-4 pt-3 border-t border-white/[0.06]">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-400">Total</span>
-              <span className="text-lg font-bold text-white">{formatPrice(total)}</span>
+              <span className="text-lg font-bold text-white">{formatTotal(total)}</span>
             </div>
           </div>
         )}
