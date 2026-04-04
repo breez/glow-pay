@@ -283,7 +283,7 @@ export function POSPage() {
 
   // Main POS screen
   return (
-    <div className="min-h-screen gradient-bg flex flex-col">
+    <div className="h-[100dvh] gradient-bg flex flex-col overflow-hidden">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2.5">
