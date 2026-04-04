@@ -38,22 +38,25 @@ export function POSKeypad({ value, onChange, currency }: POSKeypadProps) {
     ? `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: value.includes('.') ? (value.split('.')[1]?.length || 0) : 0, maximumFractionDigits: 2 })}`
     : Number(value).toLocaleString()
 
-  const btn = "rounded-2xl bg-surface-800/80 border border-white/[0.06] text-2xl font-semibold text-white hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all flex items-center justify-center"
+  const btn = "aspect-square rounded-2xl bg-surface-800/80 border border-white/[0.06] text-2xl font-semibold text-white hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all flex items-center justify-center"
 
+  // Grid is 3 columns × 4 rows of square buttons.
+  // max-w-[280px] → each button is ~89px square. Fits all phones without scroll.
+  // Total grid height: 4×89 + 3×8 = 380px.
   return (
-    <div className="flex flex-col items-center flex-1 px-6 min-h-0 overflow-hidden">
+    <div className="flex flex-col items-center flex-1 justify-center px-4">
       {/* Amount display */}
-      <div className="py-3 text-center shrink-0">
-        <p className="text-3xl font-bold tracking-tight tabular-nums text-white">
+      <div className="pb-6 text-center">
+        <p className="text-4xl font-bold tracking-tight tabular-nums text-white">
           {displayValue}
         </p>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <p className="text-xs text-gray-500 mt-1">
           {currency === 'SAT' ? 'sats' : 'USD'}
         </p>
       </div>
 
-      {/* Numpad — fills all remaining space */}
-      <div className="flex-1 grid grid-cols-3 grid-rows-4 gap-1.5 w-full max-w-xs min-h-0 pb-1">
+      {/* Numpad — square buttons, fixed max width */}
+      <div className="grid grid-cols-3 gap-2 w-full max-w-[280px]">
         <button onClick={() => handleDigit('1')} className={btn}>1</button>
         <button onClick={() => handleDigit('2')} className={btn}>2</button>
         <button onClick={() => handleDigit('3')} className={btn}>3</button>
