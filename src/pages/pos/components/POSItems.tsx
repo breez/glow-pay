@@ -3,7 +3,7 @@ import { Search, Plus, Pencil, Trash2, MoreVertical, ArrowUpDown } from 'lucide-
 import type { POSItem, CartItem } from '@/lib/pos-store'
 import { deletePOSItem } from '@/lib/pos-store'
 import { formatSats } from '@/lib/lnurl'
-import { formatUsd } from '@/lib/use-exchange-rate'
+import { formatUsd, usdToSats } from '@/lib/use-exchange-rate'
 import { POSItemForm } from './POSItemForm'
 
 interface POSItemsProps {
@@ -32,8 +32,10 @@ export function POSItems({ items, onItemsChange, onAddToCart, cart, currency, ra
       if (!sort) return 0
       if (sort === 'name-asc') return a.name.localeCompare(b.name)
       if (sort === 'name-desc') return b.name.localeCompare(a.name)
-      if (sort === 'price-asc') return a.priceSats - b.priceSats
-      return b.priceSats - a.priceSats
+      const aSats = a.priceUsd && rate ? usdToSats(a.priceUsd, rate) : a.priceSats
+      const bSats = b.priceUsd && rate ? usdToSats(b.priceUsd, rate) : b.priceSats
+      if (sort === 'price-asc') return aSats - bSats
+      return bSats - aSats
     })
 
   const getCartQty = (itemId: string) => {

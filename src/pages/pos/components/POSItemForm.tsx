@@ -15,21 +15,23 @@ interface POSItemFormProps {
 }
 
 export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFormProps) {
+  // When editing, use the item's original currency; when creating, use the POS toggle
+  const effectiveCurrency = item?.priceUsd ? 'USD' : currency
   const [name, setName] = useState(item?.name || '')
   const [price, setPrice] = useState(() => {
     if (!item) return ''
-    if (currency === 'USD' && item.priceUsd) return item.priceUsd.toString()
+    if (item.priceUsd) return item.priceUsd.toString()
     return item.priceSats.toString()
   })
   const [emoji, setEmoji] = useState(item?.emoji || '')
   const [sku, setSku] = useState(item?.sku || '')
 
-  const priceStep = currency === 'USD' ? 0.5 : 100
+  const priceStep = effectiveCurrency === 'USD' ? 0.5 : 100
   const priceNum = parseFloat(price) || 0
 
   const adjustPrice = (delta: number) => {
     const next = Math.max(0, priceNum + delta)
-    setPrice(currency === 'USD' ? next.toFixed(2) : next.toString())
+    setPrice(effectiveCurrency === 'USD' ? next.toFixed(2) : next.toString())
   }
 
   const handlePriceInput = (val: string) => {
@@ -45,7 +47,7 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
     let priceSats: number
     let priceUsd: number | undefined
 
-    if (currency === 'USD' && rate) {
+    if (effectiveCurrency === 'USD' && rate) {
       priceUsd = priceNum
       priceSats = usdToSats(priceNum, rate)
     } else {
@@ -129,7 +131,7 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
           {/* Price with stepper */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              Price ({currency === 'USD' ? 'USD' : 'sats'})
+              Price ({effectiveCurrency === 'USD' ? 'USD' : 'sats'})
             </label>
             <div className="flex items-center gap-2">
               <button
@@ -144,7 +146,7 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
                 inputMode="decimal"
                 value={price}
                 onChange={e => handlePriceInput(e.target.value)}
-                placeholder={currency === 'USD' ? '5.00' : '500'}
+                placeholder={effectiveCurrency === 'USD' ? '5.00' : '500'}
                 className="flex-1 h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm text-center focus:outline-none focus:border-glow-400 transition-colors"
               />
               <button
