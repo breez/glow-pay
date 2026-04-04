@@ -48,7 +48,7 @@ async function handleGet(req: VercelRequest, res: VercelResponse) {
 
 // POST /api/merchants — sync merchant config (auth required for existing merchants)
 async function handlePost(req: VercelRequest, res: VercelResponse) {
-  const { merchantId, apiKey, apiKeys, storeName, lightningAddress, lightningAddresses, redirectUrl, webhookUrl, webhookSecret, brandColor, brandBackground, logoUrl } = req.body ?? {}
+  const { merchantId, apiKey, apiKeys, storeName, lightningAddress, lightningAddresses, redirectUrl, webhookUrl, webhookSecret, brandColor, brandBackground, logoUrl, posEnabled } = req.body ?? {}
 
   // Accept either lightningAddress (new) or lightningAddresses[0] (old clients)
   const resolvedAddress = lightningAddress || lightningAddresses?.[0]
@@ -97,6 +97,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse) {
     brandColor: brandColor || null,
     brandBackground: brandBackground || null,
     logoUrl: logoUrl || null,
+    posEnabled: posEnabled ?? existing?.posEnabled ?? false,
     authTokenHash: authToken ? hashAuthToken(authToken) : existing?.authTokenHash,
     registeredAt: existing?.registeredAt || new Date().toISOString(),
   }

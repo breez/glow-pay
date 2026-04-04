@@ -9,6 +9,7 @@ import { DashboardPayments } from './pages/dashboard/DashboardPayments'
 import { DashboardSettings } from './pages/dashboard/DashboardSettings'
 import { DashboardCreatePayment } from './pages/dashboard/DashboardCreatePayment'
 import { DashboardIntegration } from './pages/dashboard/DashboardIntegration'
+import { POSPage } from './pages/pos/POSPage'
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/setup" element={<SetupWizard />} />
           <Route path="/pay/:merchantId/:paymentId" element={<CheckoutPage />} />
+          <Route path="/pos/:merchantId" element={<POSPage />} />
           
           {/* Merchant dashboard */}
           <Route path="/dashboard" element={<DashboardLayout />}>

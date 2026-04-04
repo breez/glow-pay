@@ -22,6 +22,7 @@ export async function syncMerchantToServer(merchant: {
   brandColor?: string | null
   brandBackground?: string | null
   logoUrl?: string | null
+  posEnabled?: boolean
 }): Promise<{ success: boolean }> {
   const authToken = await getAuthToken()
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -167,6 +168,46 @@ export async function updatePaymentStatusViaApi(
       'X-API-Key': apiKey,
     },
     body: JSON.stringify({ status }),
+  })
+  return res.json()
+}
+
+// POS API
+
+export async function getPOSMerchantInfo(merchantId: string): Promise<{
+  success: boolean
+  data?: {
+    storeName: string
+    brandColor?: string | null
+    brandBackground?: string | null
+    logoUrl?: string | null
+  }
+  error?: string
+}> {
+  const res = await fetch(`${API_BASE}/pos/${merchantId}`)
+  return res.json()
+}
+
+export async function createPOSCharge(
+  merchantId: string,
+  amountSats: number,
+  description?: string,
+  items?: Array<{ name: string; quantity: number; priceSats: number }>,
+): Promise<{
+  success: boolean
+  data?: {
+    paymentId: string
+    invoice: string
+    expiresAt: string
+    verifyUrl: string | null
+    amountSats: number
+  }
+  error?: string
+}> {
+  const res = await fetch(`${API_BASE}/pos/${merchantId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amountSats, description, items }),
   })
   return res.json()
 }

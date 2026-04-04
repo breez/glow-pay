@@ -116,3 +116,33 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-surface-600);
 }
+
+/* POS receipt print styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .pos-receipt-print,
+  .pos-receipt-print * {
+    visibility: visible;
+  }
+  .pos-receipt-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    padding: 4mm;
+    background: white;
+    color: black;
+    font-size: 12px;
+  }
+  .pos-receipt-print * {
+    color: black !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, RefreshCw, ArrowUpRight, CheckCircle, XCircle, Loader2, Wallet } from 'lucide-react'
+import { Save, RefreshCw, ArrowUpRight, CheckCircle, XCircle, Loader2, Wallet, Copy, Check, ShoppingCart } from 'lucide-react'
 import { getMerchant, saveMerchant, generateId, generateApiKey, generateSecret } from '@/lib/store'
 import { syncMerchantToServer } from '@/lib/api-client'
 import { useWallet } from '@/lib/wallet/WalletContext'
@@ -23,6 +23,8 @@ export function DashboardSettings() {
   const [logoUrl, setLogoUrl] = useState('')
   const [brandBackground, setBrandBackground] = useState('')
   const [logoError, setLogoError] = useState(false)
+  const [posEnabled, setPosEnabled] = useState(false)
+  const [posCopied, setPosCopied] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -35,6 +37,7 @@ export function DashboardSettings() {
       setBrandColor(m.brandColor || '')
       setLogoUrl(m.logoUrl || '')
       setBrandBackground(m.brandBackground || '')
+      setPosEnabled(m.posEnabled || false)
     }
   }, [])
 
@@ -62,6 +65,7 @@ export function DashboardSettings() {
         brandColor: brandColor || null,
         brandBackground: brandBackground || null,
         logoUrl: logoUrl || null,
+        posEnabled,
         createdAt: merchant?.createdAt || new Date().toISOString(),
       }
 
@@ -81,6 +85,7 @@ export function DashboardSettings() {
         brandColor: updatedMerchant.brandColor,
         brandBackground: updatedMerchant.brandBackground,
         logoUrl: updatedMerchant.logoUrl,
+        posEnabled: updatedMerchant.posEnabled,
       }).catch(err => console.warn('Failed to sync merchant to server:', err))
 
       setSuccess(true)
@@ -121,7 +126,7 @@ export function DashboardSettings() {
 
       <div className="space-y-6">
         {/* Branding tab */}
-        {tab === 'branding' && (
+        {tab === 'branding' && (<>
           <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-5">
             <div className="space-y-3">
               <div>
@@ -212,7 +217,47 @@ export function DashboardSettings() {
               </div>
             </div>
           </div>
-        )}
+
+          {/* POS Section */}
+          <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-5">
+            <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-glow-400" />
+              Point of Sale
+            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm text-white font-medium">Enable POS</p>
+                <p className="text-xs text-gray-500">Allow in-person charges via a public POS page</p>
+              </div>
+              <button
+                onClick={() => setPosEnabled(!posEnabled)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${posEnabled ? 'bg-glow-400' : 'bg-surface-700'}`}
+              >
+                <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${posEnabled ? 'left-[22px]' : 'left-0.5'}`} />
+              </button>
+            </div>
+            {posEnabled && merchant?.id && (
+              <div className="bg-surface-700/50 rounded-xl p-3">
+                <p className="text-xs text-gray-400 mb-1.5">POS URL</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-xs text-glow-300 font-mono truncate">
+                    {window.location.origin}/pos/{merchant.id}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/pos/${merchant.id}`)
+                      setPosCopied(true)
+                      setTimeout(() => setPosCopied(false), 2000)
+                    }}
+                    className="text-gray-400 hover:text-white transition-colors shrink-0"
+                  >
+                    {posCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </>)}
 
         {/* Wallet tab */}
         {tab === 'wallet' && (

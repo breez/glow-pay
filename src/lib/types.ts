@@ -20,6 +20,7 @@ export interface Merchant {
   brandColor?: string | null      // hex, e.g. "#a855f7"
   brandBackground?: string | null // hex, checkout page background
   logoUrl?: string | null         // URL to merchant logo image
+  posEnabled?: boolean            // whether POS page is active
   createdAt: string
 }
 

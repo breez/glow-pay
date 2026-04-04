@@ -1,0 +1,18 @@
+{
+  "name": "Glow Pay POS",
+  "short_name": "Glow POS",
+  "description": "Accept Bitcoin payments at your point of sale",
+  "start_url": "/pos",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#a855f7",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

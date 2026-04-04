@@ -32,6 +32,7 @@ export interface ServerMerchant {
   brandColor?: string | null
   brandBackground?: string | null
   logoUrl?: string | null
+  posEnabled?: boolean
   authTokenHash?: string // SHA-256 hash of auth token derived from mnemonic
   registeredAt: string
 }
