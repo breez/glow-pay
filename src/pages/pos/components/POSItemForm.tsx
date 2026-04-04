@@ -14,22 +14,48 @@ interface POSItemFormProps {
   onClose: () => void
 }
 
-export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFormProps) {
+export function POSItemForm({ item, currency: initialCurrency, rate, onSave, onClose }: POSItemFormProps) {
   const [name, setName] = useState(item?.name || '')
+  const [priceCurrency, setPriceCurrency] = useState<'SAT' | 'USD'>(
+    item?.priceUsd ? 'USD' : initialCurrency
+  )
   const [price, setPrice] = useState(() => {
     if (!item) return ''
-    if (currency === 'USD' && item.priceUsd) return item.priceUsd.toString()
+    if (item.priceUsd && priceCurrency === 'USD') return item.priceUsd.toString()
     return item.priceSats.toString()
   })
   const [emoji, setEmoji] = useState(item?.emoji || '')
   const [sku, setSku] = useState(item?.sku || '')
 
-  const priceStep = currency === 'USD' ? 0.5 : 100
+  const priceStep = priceCurrency === 'USD' ? 0.5 : 100
   const priceNum = parseFloat(price) || 0
 
   const adjustPrice = (delta: number) => {
     const next = Math.max(0, priceNum + delta)
-    setPrice(currency === 'USD' ? next.toFixed(2) : next.toString())
+    setPrice(priceCurrency === 'USD' ? next.toFixed(2) : next.toString())
+  }
+
+  const handlePriceInput = (val: string) => {
+    // Allow digits, single decimal point
+    if (val === '' || /^\d*\.?\d*$/.test(val)) {
+      setPrice(val)
+    }
+  }
+
+  const togglePriceCurrency = () => {
+    if (!rate) return
+    const num = parseFloat(price) || 0
+    if (priceCurrency === 'SAT') {
+      // Convert sats to USD
+      const usd = (num / 100_000_000) * rate
+      setPriceCurrency('USD')
+      setPrice(usd >= 0.01 ? usd.toFixed(2) : '')
+    } else {
+      // Convert USD to sats
+      const sats = Math.round((num / rate) * 100_000_000)
+      setPriceCurrency('SAT')
+      setPrice(sats > 0 ? sats.toString() : '')
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -39,7 +65,7 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
     let priceSats: number
     let priceUsd: number | undefined
 
-    if (currency === 'USD' && rate) {
+    if (priceCurrency === 'USD' && rate) {
       priceUsd = priceNum
       priceSats = usdToSats(priceNum, rate)
     } else {
@@ -120,11 +146,9 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
             />
           </div>
 
-          {/* Price with stepper */}
+          {/* Price with stepper + currency toggle */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">
-              Price ({currency === 'USD' ? 'USD' : 'sats'})
-            </label>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">Price</label>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -134,12 +158,11 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
                 <Minus className="w-4 h-4" />
               </button>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={price}
-                onChange={e => setPrice(e.target.value)}
-                placeholder={currency === 'USD' ? '5.00' : '500'}
-                step={currency === 'USD' ? '0.01' : '1'}
-                min="0"
+                onChange={e => handlePriceInput(e.target.value)}
+                placeholder={priceCurrency === 'USD' ? '5.00' : '500'}
                 className="flex-1 h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm text-center focus:outline-none focus:border-glow-400 transition-colors"
               />
               <button
@@ -148,6 +171,14 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
                 className="w-11 h-11 rounded-xl bg-surface-700 border border-white/[0.06] flex items-center justify-center text-gray-400 hover:text-white hover:bg-surface-600 transition-colors shrink-0"
               >
                 <Plus className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={togglePriceCurrency}
+                disabled={!rate}
+                className="h-11 px-3 rounded-xl bg-surface-700 border border-white/[0.06] text-xs font-semibold text-gray-300 hover:text-white hover:bg-surface-600 disabled:text-gray-600 transition-colors shrink-0"
+              >
+                {priceCurrency}
               </button>
             </div>
           </div>
