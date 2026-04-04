@@ -22,10 +22,10 @@ async function fetchRate(): Promise<number> {
   if (fetchPromise) return fetchPromise
   fetchPromise = (async () => {
     try {
-      const res = await fetch('https://api.yadio.io/rate/USD')
+      const res = await fetch('https://api.yadio.io/exrates/BTC')
       if (!res.ok) throw new Error(`Yadio API ${res.status}`)
       const data = await res.json()
-      cachedRate = data.rate as number
+      cachedRate = data.BTC.USD as number
       cachedAt = Date.now()
       return cachedRate
     } finally {
