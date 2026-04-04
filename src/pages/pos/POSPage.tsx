@@ -217,6 +217,7 @@ export function POSPage() {
       if (prev === 'SAT') return rate ? 'USD' : 'SAT'
       return 'SAT'
     })
+    setKeypadValue('0')
   }
 
   // CSV handlers
