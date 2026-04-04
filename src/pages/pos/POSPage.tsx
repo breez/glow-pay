@@ -399,7 +399,7 @@ export function POSPage() {
       )}
 
       {/* Tab content */}
-      <div className="flex-1 flex flex-col overflow-hidden pt-2 pb-20">
+      <div className="flex-1 flex flex-col overflow-hidden pt-1 pb-16">
         {tab === 'keypad' ? (
           <POSKeypad value={keypadValue} onChange={setKeypadValue} currency={currency} />
         ) : (

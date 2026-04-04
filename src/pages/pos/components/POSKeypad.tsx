@@ -41,9 +41,9 @@ export function POSKeypad({ value, onChange, currency }: POSKeypadProps) {
   const btn = "rounded-2xl bg-surface-800/80 border border-white/[0.06] text-2xl font-semibold text-white hover:bg-surface-700 active:bg-surface-600 active:scale-95 transition-all flex items-center justify-center"
 
   return (
-    <div className="flex flex-col items-center flex-1 px-6 min-h-0 overflow-hidden justify-end pb-1">
+    <div className="flex flex-col items-center flex-1 px-6 min-h-0 overflow-hidden">
       {/* Amount display */}
-      <div className="py-4 text-center shrink-0">
+      <div className="py-3 text-center shrink-0">
         <p className="text-3xl font-bold tracking-tight tabular-nums text-white">
           {displayValue}
         </p>
@@ -52,10 +52,8 @@ export function POSKeypad({ value, onChange, currency }: POSKeypadProps) {
         </p>
       </div>
 
-      {/* Numpad — 4 rows, max 72px per button */}
-      <div className="grid grid-cols-3 grid-rows-4 gap-1.5 w-full max-w-xs shrink-0"
-        style={{ height: 'min(calc(100% - 80px), 312px)' }}
-      >
+      {/* Numpad — fills all remaining space */}
+      <div className="flex-1 grid grid-cols-3 grid-rows-4 gap-1.5 w-full max-w-xs min-h-0 pb-1">
         <button onClick={() => handleDigit('1')} className={btn}>1</button>
         <button onClick={() => handleDigit('2')} className={btn}>2</button>
         <button onClick={() => handleDigit('3')} className={btn}>3</button>
