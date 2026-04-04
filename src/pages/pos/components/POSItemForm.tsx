@@ -20,6 +20,7 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
     return item.priceSats.toString()
   })
   const [emoji, setEmoji] = useState(item?.emoji || '')
+  const [sku, setSku] = useState(item?.sku || '')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,18 +38,17 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
     }
 
     if (item) {
-      // Edit existing
       savePOSItem({
         ...item,
         name: name.trim(),
         priceSats,
         priceUsd,
         emoji: emoji || '📦',
+        sku: sku.trim() || undefined,
         updatedAt: new Date().toISOString(),
       })
     } else {
-      // Create new
-      savePOSItem(createPOSItem(name.trim(), priceSats, emoji || '📦', priceUsd))
+      savePOSItem(createPOSItem(name.trim(), priceSats, emoji || '📦', priceUsd, sku.trim() || undefined))
     }
     onSave()
   }
@@ -56,60 +56,76 @@ export function POSItemForm({ item, currency, rate, onSave, onClose }: POSItemFo
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
       <div
-        className="bg-surface-800 border border-white/[0.06] rounded-t-2xl sm:rounded-2xl w-full max-w-sm p-5"
+        className="bg-surface-800 border border-white/[0.06] rounded-t-2xl sm:rounded-2xl w-full max-w-sm"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <h3 className="text-lg font-semibold">{item ? 'Edit Item' : 'New Item'}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Emoji</label>
-            <input
-              type="text"
-              value={emoji}
-              onChange={e => setEmoji(e.target.value)}
-              placeholder="📦"
-              maxLength={4}
-              className="w-20 px-3 py-2 bg-surface-700 border border-white/[0.06] rounded-lg text-center text-2xl focus:outline-none focus:border-glow-400 transition-colors"
-            />
+        <form onSubmit={handleSubmit} className="px-5 pb-5 space-y-4">
+          {/* Emoji + Name row */}
+          <div className="flex gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Icon</label>
+              <input
+                type="text"
+                value={emoji}
+                onChange={e => setEmoji(e.target.value)}
+                placeholder="📦"
+                maxLength={4}
+                className="w-14 h-11 px-2 bg-surface-700 border border-white/[0.06] rounded-xl text-center text-xl focus:outline-none focus:border-glow-400 transition-colors"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="e.g. Espresso"
+                className="w-full h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-glow-400 transition-colors"
+                autoFocus
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g. Espresso"
-              className="w-full px-3 py-2 bg-surface-700 border border-white/[0.06] rounded-lg text-sm focus:outline-none focus:border-glow-400 transition-colors"
-              autoFocus
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-1">
-              Price ({currency === 'USD' ? 'USD' : 'sats'})
-            </label>
-            <input
-              type="number"
-              value={price}
-              onChange={e => setPrice(e.target.value)}
-              placeholder={currency === 'USD' ? '5.00' : '500'}
-              step={currency === 'USD' ? '0.01' : '1'}
-              min="0"
-              className="w-full px-3 py-2 bg-surface-700 border border-white/[0.06] rounded-lg text-sm focus:outline-none focus:border-glow-400 transition-colors"
-            />
+          {/* Price + SKU row */}
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                Price ({currency === 'USD' ? 'USD' : 'sats'})
+              </label>
+              <input
+                type="number"
+                value={price}
+                onChange={e => setPrice(e.target.value)}
+                placeholder={currency === 'USD' ? '5.00' : '500'}
+                step={currency === 'USD' ? '0.01' : '1'}
+                min="0"
+                className="w-full h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-glow-400 transition-colors"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">SKU</label>
+              <input
+                type="text"
+                value={sku}
+                onChange={e => setSku(e.target.value)}
+                placeholder="Optional"
+                className="w-full h-11 px-3 bg-surface-700 border border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-glow-400 transition-colors"
+              />
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={!name.trim() || !price || parseFloat(price) <= 0}
-            className="w-full py-3 bg-glow-400 hover:bg-glow-300 active:bg-glow-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-surface-900 font-bold rounded-xl transition-colors text-sm"
+            className="w-full py-3 bg-glow-400 hover:bg-glow-300 active:bg-glow-500 disabled:bg-gray-700 disabled:text-gray-500 text-surface-900 font-bold rounded-xl transition-colors text-sm"
           >
             {item ? 'Save Changes' : 'Add Item'}
           </button>

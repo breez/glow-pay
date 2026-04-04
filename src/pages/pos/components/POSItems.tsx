@@ -21,8 +21,10 @@ export function POSItems({ items, onItemsChange, onAddToCart, cart, currency, ra
   const [showForm, setShowForm] = useState(false)
   const [contextMenu, setContextMenu] = useState<string | null>(null)
 
+  const query = search.toLowerCase()
   const filtered = items.filter(item =>
-    item.name.toLowerCase().includes(search.toLowerCase())
+    item.name.toLowerCase().includes(query) ||
+    (item.sku && item.sku.toLowerCase().includes(query))
   )
 
   const getCartQty = (itemId: string) => {
@@ -43,31 +45,32 @@ export function POSItems({ items, onItemsChange, onAddToCart, cart, currency, ra
 
   const formatPrice = (item: POSItem) => {
     if (currency === 'USD' && rate) {
-      return `$${formatUsd(satsToUsd(item.priceSats, rate))}`
+      const usd = satsToUsd(item.priceSats, rate)
+      if (usd >= 0.01) return `$${formatUsd(usd)}`
     }
     return `${formatSats(item.priceSats)} sats`
   }
 
   return (
-    <div className="flex flex-col flex-1 px-4 overflow-hidden">
-      {/* Search (only show when there are items) */}
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {/* Search */}
       {items.length > 0 && (
-        <div className="relative mb-3">
+        <div className="relative mx-4 mb-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search items..."
+            placeholder="Search by name or SKU"
             className="w-full pl-9 pr-3 py-2.5 bg-surface-800/60 border border-white/[0.06] rounded-xl text-sm focus:outline-none focus:border-glow-400 transition-colors"
           />
         </div>
       )}
 
-      {/* Item grid */}
-      <div className="flex-1 overflow-y-auto -mx-4 px-4 pb-2">
+      {/* Item list */}
+      <div className="flex-1 overflow-y-auto pb-2">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center pt-20">
+          <div className="flex flex-col items-center justify-center text-center pt-20 px-4">
             <div className="w-16 h-16 rounded-2xl bg-surface-800/60 border border-white/[0.06] flex items-center justify-center mb-4">
               <Plus className="w-7 h-7 text-gray-600" />
             </div>
@@ -79,32 +82,39 @@ export function POSItems({ items, onItemsChange, onAddToCart, cart, currency, ra
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="divide-y divide-white/[0.04]">
             {filtered.map(item => {
               const qty = getCartQty(item.id)
               return (
-                <button
-                  key={item.id}
-                  onClick={() => { onAddToCart(item); setContextMenu(null) }}
-                  onContextMenu={e => { e.preventDefault(); setContextMenu(contextMenu === item.id ? null : item.id) }}
-                  className={`relative bg-surface-800/60 border rounded-2xl p-3.5 text-left hover:bg-surface-700/60 active:bg-surface-600/60 active:scale-[0.97] transition-all ${
-                    qty > 0 ? 'border-glow-400/30' : 'border-white/[0.06]'
-                  }`}
-                >
-                  <span className="text-3xl block mb-2">{item.emoji}</span>
-                  <p className="text-sm font-medium text-white truncate">{item.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{formatPrice(item)}</p>
-                  {qty > 0 && (
-                    <span className="absolute top-2.5 right-2.5 min-w-5 h-5 px-1 bg-glow-400 text-surface-900 text-xs font-bold rounded-full flex items-center justify-center">
-                      {qty}
-                    </span>
-                  )}
+                <div key={item.id} className="relative">
+                  <button
+                    onClick={() => { onAddToCart(item); setContextMenu(null) }}
+                    onContextMenu={e => { e.preventDefault(); setContextMenu(contextMenu === item.id ? null : item.id) }}
+                    className="w-full flex items-center gap-3.5 px-4 py-3.5 hover:bg-surface-800/40 active:bg-surface-800/60 transition-colors"
+                  >
+                    {/* Icon container */}
+                    <div className="w-10 h-10 rounded-xl bg-surface-700/80 border border-white/[0.06] flex items-center justify-center shrink-0">
+                      <span className="text-lg">{item.emoji}</span>
+                    </div>
+                    {/* Name + SKU */}
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="text-sm font-medium text-white truncate">{item.name}</p>
+                      {item.sku && (
+                        <p className="text-xs text-gray-600 truncate">{item.sku}</p>
+                      )}
+                    </div>
+                    {/* Price */}
+                    <span className="text-sm text-gray-400 tabular-nums shrink-0">{formatPrice(item)}</span>
+                    {/* Cart quantity badge */}
+                    {qty > 0 && (
+                      <span className="min-w-5 h-5 px-1 bg-glow-400 text-surface-900 text-xs font-bold rounded-full flex items-center justify-center shrink-0">
+                        {qty}
+                      </span>
+                    )}
+                  </button>
                   {/* Context menu */}
                   {contextMenu === item.id && (
-                    <div
-                      className="absolute top-2 right-2 bg-surface-700 border border-white/[0.1] rounded-xl shadow-xl z-10 overflow-hidden"
-                      onClick={e => e.stopPropagation()}
-                    >
+                    <div className="absolute top-2 right-4 bg-surface-700 border border-white/[0.1] rounded-xl shadow-xl z-10 overflow-hidden">
                       <button
                         onClick={() => handleEdit(item)}
                         className="flex items-center gap-2 px-4 py-2.5 text-sm text-blue-400 hover:bg-surface-600 w-full"
@@ -119,7 +129,7 @@ export function POSItems({ items, onItemsChange, onAddToCart, cart, currency, ra
                       </button>
                     </div>
                   )}
-                </button>
+                </div>
               )
             })}
           </div>

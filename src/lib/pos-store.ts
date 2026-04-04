@@ -6,6 +6,7 @@ export interface POSItem {
   priceSats: number
   priceUsd?: number
   emoji: string
+  sku?: string
   createdAt: string
   updatedAt: string
 }
@@ -55,7 +56,7 @@ export function setPOSItems(items: POSItem[]): void {
   localStorage.setItem(ITEMS_KEY, JSON.stringify(items))
 }
 
-export function createPOSItem(name: string, priceSats: number, emoji: string, priceUsd?: number): POSItem {
+export function createPOSItem(name: string, priceSats: number, emoji: string, priceUsd?: number, sku?: string): POSItem {
   const now = new Date().toISOString()
   return {
     id: generateId(),
@@ -63,6 +64,7 @@ export function createPOSItem(name: string, priceSats: number, emoji: string, pr
     priceSats,
     priceUsd,
     emoji,
+    sku: sku || undefined,
     createdAt: now,
     updatedAt: now,
   }
