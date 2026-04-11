@@ -197,12 +197,31 @@ export const disconnect = async (): Promise<void> => {
 
 export const connected = (): boolean => wallet !== null
 
+const OBFUSCATION_KEY = 'glow-pay:spark:2025'
+const ENCRYPTED_PREFIX = 'enc:'
+
+function xorObfuscate(input: string, key: string): string {
+  let result = ''
+  for (let i = 0; i < input.length; i++) {
+    result += String.fromCharCode(input.charCodeAt(i) ^ key.charCodeAt(i % key.length))
+  }
+  return result
+}
+
 export const saveMnemonic = (mnemonic: string): void => {
-  localStorage.setItem('glowpay_mnemonic', mnemonic)
+  const obfuscated = ENCRYPTED_PREFIX + btoa(xorObfuscate(mnemonic, OBFUSCATION_KEY))
+  localStorage.setItem('glowpay_mnemonic', obfuscated)
 }
 
 export const getSavedMnemonic = (): string | null => {
-  return localStorage.getItem('glowpay_mnemonic')
+  const raw = localStorage.getItem('glowpay_mnemonic')
+  if (!raw) return null
+  if (raw.startsWith(ENCRYPTED_PREFIX)) {
+    return xorObfuscate(atob(raw.slice(ENCRYPTED_PREFIX.length)), OBFUSCATION_KEY)
+  }
+  // Plaintext from existing user — migrate to obfuscated form
+  saveMnemonic(raw)
+  return raw
 }
 
 export const clearMnemonic = (): void => {

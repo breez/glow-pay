@@ -102,24 +102,20 @@ async function handlePatch(req: VercelRequest, res: VercelResponse) {
   }
 
   const { status } = req.body ?? {}
-  if (!status || !['completed', 'expired'].includes(status)) {
-    return res.status(400).json({ error: 'status must be "completed" or "expired"' })
+  if (status !== 'expired') {
+    return res.status(400).json({ error: 'status must be "expired"' })
   }
 
   const previousStatus = payment.status
   payment.status = status
-  if (status === 'completed' && !payment.paidAt) {
-    payment.paidAt = new Date().toISOString()
-  }
   await savePaymentToKv(payment)
 
   // Fire webhook on status change
   if (status !== previousStatus && merchant.webhookUrl && merchant.webhookSecret) {
-    sendWebhook(merchant.webhookUrl, merchant.webhookSecret,
-      status === 'completed' ? 'payment.completed' : 'payment.expired',
+    sendWebhook(merchant.webhookUrl, merchant.webhookSecret, 'payment.expired',
       { paymentId: payment.id, amountSats: payment.amountSats, status, paidAt: payment.paidAt },
     ).catch(() => {})
   }
 
-  return res.status(200).json({ success: true, data: { id: payment.id, status: payment.status, paidAt: payment.paidAt } })
+  return res.status(200).json({ success: true, data: { id: payment.id, status: payment.status } })
 }

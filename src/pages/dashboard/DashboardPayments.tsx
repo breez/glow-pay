@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, ExternalLink, Copy, Check, CheckCircle, RefreshCw, Loader2, Zap } from 'lucide-react'
+import { Plus, ExternalLink, Copy, Check, RefreshCw, Loader2, Zap } from 'lucide-react'
 import { getMerchant } from '@/lib/store'
 import { formatSats } from '@/lib/lnurl'
-import { getPaymentFromApi, listPaymentsFromApi, updatePaymentStatusViaApi } from '@/lib/api-client'
+import { getPaymentFromApi, listPaymentsFromApi } from '@/lib/api-client'
 import type { Payment } from '@/lib/types'
 
 const statusLabel = (status: string, type?: string) => {
@@ -20,7 +20,6 @@ export function DashboardPayments() {
   const [isLoading, setIsLoading] = useState(true)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [verifyingId, setVerifyingId] = useState<string | null>(null)
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
   const merchant = getMerchant()
 
@@ -120,30 +119,6 @@ export function DashboardPayments() {
     }
   }
 
-  const handleMarkCompleted = async (paymentId: string) => {
-    const activeKey = getApiKey()
-    if (!activeKey) {
-      showToast('No API key available.', 'error')
-      return
-    }
-
-    try {
-      const result = await updatePaymentStatusViaApi(activeKey, paymentId, 'completed')
-      if (result.success) {
-        setPayments(prev => prev.map(p =>
-          p.id === paymentId ? { ...p, status: 'completed' as const, paidAt: new Date().toISOString() } : p
-        ))
-        showToast('Payment marked as settled.', 'success')
-      } else {
-        showToast(result.error || 'Failed to update payment.', 'error')
-      }
-    } catch (err) {
-      console.error('Mark completed error:', err)
-      showToast('Failed to update payment. Please try again.', 'error')
-    }
-    setConfirmingId(null)
-  }
-
   const copyPaymentUrl = async (paymentId: string) => {
     const url = `${window.location.origin}/pay/${merchant?.id}/${paymentId}`
     await navigator.clipboard.writeText(url)
@@ -187,20 +162,6 @@ export function DashboardPayments() {
         </Link>
       </div>
 
-      {/* Action legend */}
-      {payments.some(p => p.status === 'pending') && (
-        <div className="mb-5 flex items-center gap-6 text-xs text-gray-500">
-          <div className="flex items-center gap-1.5">
-            <RefreshCw className="w-3.5 h-3.5 text-glow-400" />
-            <span>Verify payment</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <CheckCircle className="w-3.5 h-3.5 text-green-400" />
-            <span>Mark as settled</span>
-          </div>
-        </div>
-      )}
-
       {isLoading ? (
         <div className="bg-surface-800/60 border border-white/[0.06] rounded-2xl p-12 text-center">
           <Loader2 className="w-8 h-8 text-gray-600 animate-spin mx-auto mb-3" />
@@ -232,7 +193,6 @@ export function DashboardPayments() {
             </thead>
             <tbody className="divide-y divide-white/5 text-sm">
               {payments.map((payment) => (
-                <>
                   <tr key={payment.id} className="hover:bg-surface-700/30 transition-colors duration-150">
                     <td className="px-6 py-3.5">
                       <p className="font-medium">{payment.description || 'Payment'}</p>
@@ -256,7 +216,6 @@ export function DashboardPayments() {
                       {payment.type !== 'sweep' && (
                       <div className="flex items-center justify-end gap-1.5">
                         {payment.status === 'pending' && (
-                          <>
                             <button
                               onClick={() => handleCheckPayment(payment)}
                               disabled={verifyingId === payment.id}
@@ -269,14 +228,6 @@ export function DashboardPayments() {
                                 <RefreshCw className="w-4 h-4 text-glow-400" />
                               )}
                             </button>
-                            <button
-                              onClick={() => setConfirmingId(confirmingId === payment.id ? null : payment.id)}
-                              className="p-2 hover:bg-surface-600 rounded-lg transition-colors"
-                              title="Mark as settled"
-                            >
-                              <CheckCircle className="w-4 h-4 text-green-400" />
-                            </button>
-                          </>
                         )}
                         <button
                           onClick={() => copyPaymentUrl(payment.id)}
@@ -301,33 +252,6 @@ export function DashboardPayments() {
                       )}
                     </td>
                   </tr>
-                  {/* Inline confirmation row */}
-                  {confirmingId === payment.id && (
-                    <tr key={`confirm-${payment.id}`} className="bg-surface-700/20">
-                      <td colSpan={5} className="px-6 py-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm text-gray-300">
-                            Confirm: mark this payment ({formatSats(payment.amountSats)} sats) as settled?
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleMarkCompleted(payment.id)}
-                              className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-xs font-semibold transition-colors"
-                            >
-                              Yes, Mark Settled
-                            </button>
-                            <button
-                              onClick={() => setConfirmingId(null)}
-                              className="px-3 py-1.5 bg-surface-600 hover:bg-surface-500 rounded-lg text-xs font-medium transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </>
               ))}
             </tbody>
           </table>

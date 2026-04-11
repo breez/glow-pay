@@ -145,12 +145,17 @@ export async function recordSweepViaApi(
   amountSats: number,
   description?: string,
 ): Promise<{ success: boolean; data?: { paymentId: string }; error?: string }> {
+  const authToken = await getAuthToken()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-API-Key': apiKey,
+  }
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
   const res = await fetch(`${API_BASE}/payments/sweep`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-API-Key': apiKey,
-    },
+    headers,
     body: JSON.stringify({ amountSats, description }),
   })
   return res.json()
@@ -159,7 +164,7 @@ export async function recordSweepViaApi(
 export async function updatePaymentStatusViaApi(
   apiKey: string,
   paymentId: string,
-  status: 'completed' | 'expired',
+  status: 'expired',
 ): Promise<{ success: boolean; error?: string }> {
   const res = await fetch(`${API_BASE}/payments/${paymentId}`, {
     method: 'PATCH',

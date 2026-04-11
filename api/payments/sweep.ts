@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getMerchantByApiKey, savePaymentToKv } from '../_lib/redis.js'
+import { hashAuthToken } from '../_lib/auth.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
@@ -18,6 +19,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const merchant = await getMerchantByApiKey(apiKey)
   if (!merchant) {
     return res.status(401).json({ error: 'Invalid API key' })
+  }
+
+  // Require auth token (derived from mnemonic) — only the wallet holder can record sweeps
+  const authHeader = req.headers.authorization
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing Authorization header' })
+  }
+  const authToken = authHeader.slice(7)
+  if (!merchant.authTokenHash || merchant.authTokenHash !== hashAuthToken(authToken)) {
+    return res.status(403).json({ error: 'Invalid auth token' })
   }
 
   const { amountSats, description } = req.body ?? {}
