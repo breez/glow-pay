@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { randomUUID } from 'crypto'
 import { getMerchantByApiKey, savePaymentToKv } from '../_lib/redis.js'
 import { hashAuthToken } from '../_lib/auth.js'
 
@@ -32,12 +33,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { amountSats, description } = req.body ?? {}
-  if (!amountSats || typeof amountSats !== 'number' || amountSats < 1) {
+  if (!amountSats || typeof amountSats !== 'number' || !Number.isFinite(amountSats) || !Number.isInteger(amountSats) || amountSats < 1) {
     return res.status(400).json({ error: 'amountSats must be a positive integer' })
   }
 
   const now = new Date().toISOString()
-  const paymentId = `sweep_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`
+  const paymentId = `sweep_${randomUUID()}`
 
   await savePaymentToKv({
     id: paymentId,

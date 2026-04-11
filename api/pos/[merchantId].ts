@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { randomUUID } from 'crypto'
 import { getMerchantById, savePaymentToKv } from '../_lib/redis.js'
 import { sendWebhook } from '../_lib/webhook.js'
 import { fetchLnurlPayInfo, requestInvoice, satsToMsats } from '../../src/lib/lnurl.js'
@@ -59,7 +60,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse) {
   }
 
   const { amountSats, description, items } = req.body ?? {}
-  if (!amountSats || typeof amountSats !== 'number' || amountSats < 1) {
+  if (!amountSats || typeof amountSats !== 'number' || !Number.isFinite(amountSats) || !Number.isInteger(amountSats) || amountSats < 1) {
     return res.status(400).json({ success: false, error: 'amountSats must be a positive integer' })
   }
 
@@ -81,7 +82,7 @@ async function handlePost(req: VercelRequest, res: VercelResponse) {
 
     const invoiceResponse = await requestInvoice(lnurlInfo.callback, msats, description, PAYMENT_EXPIRY_SECS)
     const verifyUrl = invoiceResponse.verify || null
-    const paymentId = `${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 9)}`
+    const paymentId = randomUUID()
     const now = new Date()
 
     const payment = {
