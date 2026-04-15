@@ -12,6 +12,7 @@ The simplest way to accept bitcoin payments on your website. No server is requir
 - **Checkout Branding**: Custom logo, colors, and background on payment pages
 - **Sweep Funds**: Send your full balance to any Lightning address
 - **Point of Sale**: Mobile-first POS page for in-person payments, installable as a PWA
+- **WooCommerce Plugin**: Drop-in payment gateway for WordPress stores ([`plugins/woocommerce-glow-pay/`](./plugins/woocommerce-glow-pay/))
 
 ## How It Works
 
@@ -150,6 +151,27 @@ curl -X POST https://glow-pay.co/api/pos/MERCHANT_ID \
 ```
 
 POS payments appear in the dashboard with `source: "pos"` in their metadata.
+
+## WooCommerce Plugin
+
+A drop-in WordPress payment gateway that adds "Bitcoin / Lightning (Glow Pay)" to the WooCommerce checkout. Lives in [`plugins/woocommerce-glow-pay/`](./plugins/woocommerce-glow-pay/).
+
+### How it works
+
+1. Merchant installs the plugin, enters their Glow Pay API key and webhook secret in WooCommerce → Settings → Payments
+2. At checkout, the plugin converts the order total to sats via Yadio (`/exrates/BTC`) and calls `POST /api/payments`
+3. Customer is redirected to the hosted Glow Pay checkout page
+4. After payment, the customer returns to `?wc-api=glow_pay_return`, which re-verifies the status against `GET /api/payments/:id` before marking the WC order paid
+5. A server-to-server webhook at `?wc-api=glow_pay_webhook` provides redundant confirmation, HMAC-SHA256 verified against the shared secret
+
+### Testing
+
+```bash
+cd plugins/woocommerce-glow-pay
+node test-playground.mjs   # full end-to-end test against WordPress Playground (real LN payment)
+```
+
+The test uses [WordPress Playground](https://playground.wordpress.net/) (in-browser WP+WC) so no local PHP/Docker setup is required. See [`plugins/woocommerce-glow-pay/readme.txt`](./plugins/woocommerce-glow-pay/readme.txt) for the installation instructions distributed to merchants.
 
 ## Security
 
