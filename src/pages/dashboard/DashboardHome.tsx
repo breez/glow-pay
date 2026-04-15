@@ -11,7 +11,7 @@ export function DashboardHome() {
   const [merchant, setMerchant] = useState<Merchant | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const { balanceSats, isSyncing } = useWallet()
+  const { balanceSats, isBalanceStale } = useWallet()
 
   useEffect(() => {
     const m = getMerchant()
@@ -139,18 +139,19 @@ export function DashboardHome() {
       <div className="bg-gradient-to-br from-glow-400/[0.08] to-glow-400/[0.02] bg-surface-800/60 border border-glow-400/10 rounded-2xl p-5 mb-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Balance</p>
-            {isSyncing ? (
-              <div className="flex items-center gap-2 h-[36px]">
-                <div className="w-4 h-4 border-2 border-glow-400/30 border-t-glow-400 rounded-full animate-spin" />
-                <span className="text-sm text-gray-400">Syncing wallet...</span>
-              </div>
-            ) : (
-              <p className="text-3xl font-bold tabular-nums">
-                {formatSats(balanceSats)}
-                <span className="text-lg font-normal text-gray-500 ml-1.5">sats</span>
-              </p>
-            )}
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Balance</p>
+              {isBalanceStale && (
+                <span className="flex items-center gap-1 text-[10px] font-medium text-glow-400/80 uppercase tracking-wide">
+                  <div className="w-2.5 h-2.5 border border-glow-400/30 border-t-glow-400 rounded-full animate-spin" />
+                  Syncing
+                </span>
+              )}
+            </div>
+            <p className="text-3xl font-bold tabular-nums">
+              {formatSats(balanceSats)}
+              <span className="text-lg font-normal text-gray-500 ml-1.5">sats</span>
+            </p>
           </div>
           <div className="w-11 h-11 rounded-xl bg-glow-400/20 flex items-center justify-center">
             <Wallet className="w-5 h-5 text-glow-400" />

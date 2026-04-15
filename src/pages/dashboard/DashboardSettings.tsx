@@ -11,7 +11,7 @@ type Tab = 'branding' | 'wallet'
 export function DashboardSettings() {
   const [tab, setTab] = useState<Tab>('branding')
   const [merchant, setMerchant] = useState<Merchant | null>(null)
-  const { balanceSats, refreshBalance, sweepFunds } = useWallet()
+  const { balanceSats, isBalanceStale, refreshBalance, sweepFunds } = useWallet()
   const [sweepDestination, setSweepDestination] = useState('')
   const [sweeping, setSweeping] = useState(false)
   const [sweepProgress, setSweepProgress] = useState('')
@@ -273,7 +273,15 @@ export function DashboardSettings() {
             {/* Balance */}
             <div className="mb-4 bg-surface-700/50 rounded-xl p-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-400">Balance</span>
+                <span className="text-sm text-gray-400 flex items-center gap-2">
+                  Balance
+                  {isBalanceStale && (
+                    <span className="flex items-center gap-1 text-[10px] font-medium text-glow-400/80 uppercase tracking-wide">
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                      Syncing
+                    </span>
+                  )}
+                </span>
                 <span className="text-sm font-bold">{balanceSats.toLocaleString()} sats</span>
               </div>
             </div>
@@ -370,13 +378,17 @@ export function DashboardSettings() {
                     setSweepError('Enter a destination Lightning address')
                     return
                   }
+                  if (isBalanceStale) {
+                    setSweepError('Waiting for wallet sync — please wait a moment')
+                    return
+                  }
                   if (balanceSats === 0) {
                     setSweepError('No funds to sweep')
                     return
                   }
                   setShowConfirm(true)
                 }}
-                disabled={!sweepDestination.trim() || balanceSats === 0}
+                disabled={!sweepDestination.trim() || balanceSats === 0 || isBalanceStale}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-500/80 hover:bg-red-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors text-sm"
               >
                 <ArrowUpRight className="w-4 h-4" />

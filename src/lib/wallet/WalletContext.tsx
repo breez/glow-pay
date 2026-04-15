@@ -22,6 +22,33 @@ import { recordSweepViaApi } from '../api-client'
 
 const MAX_RECONNECT_ATTEMPTS = 3
 const RECONNECT_DELAY_MS = 2000
+const BALANCE_CACHE_KEY = 'glow_cached_balance_sats'
+
+function loadCachedBalance(): number {
+  try {
+    const v = localStorage.getItem(BALANCE_CACHE_KEY)
+    const n = v ? parseInt(v, 10) : 0
+    return Number.isFinite(n) && n >= 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+function saveCachedBalance(sats: number) {
+  try {
+    localStorage.setItem(BALANCE_CACHE_KEY, String(sats))
+  } catch {
+    // ignore quota/private-mode errors
+  }
+}
+
+function clearCachedBalance() {
+  try {
+    localStorage.removeItem(BALANCE_CACHE_KEY)
+  } catch {
+    // ignore
+  }
+}
 
 interface WalletContextValue {
   isConnecting: boolean
@@ -31,6 +58,7 @@ interface WalletContextValue {
   lightningAddress: breezSdk.LightningAddressInfo | null
   error: string | null
   balanceSats: number
+  isBalanceStale: boolean
   generateMnemonic: () => string
   createWallet: (mnemonic: string) => Promise<void>
   restoreWallet: (mnemonic: string) => Promise<void>
@@ -51,11 +79,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletInfo, setWalletInfo] = useState<breezSdk.GetInfoResponse | null>(null)
   const [lightningAddress, setLightningAddress] = useState<breezSdk.LightningAddressInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [balanceSats, setBalanceSats] = useState(0)
+  const [balanceSats, setBalanceSats] = useState<number>(() => loadCachedBalance())
+  // Stale while we're still waiting for the first fresh `synced` event on this session.
+  const [isBalanceStale, setIsBalanceStale] = useState<boolean>(() => !!getSavedMnemonic())
 
   const eventListenerIdRef = useRef<string | null>(null)
   const reconnectAttemptRef = useRef(0)
   const isRestoringRef = useRef(false)
+
+  useEffect(() => {
+    saveCachedBalance(balanceSats)
+  }, [balanceSats])
 
   useEffect(() => {
     const savedMnemonic = getSavedMnemonic()
@@ -105,6 +139,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setLightningAddress(addr)
       const bal = await getBalance()
       setBalanceSats(bal)
+      setIsBalanceStale(false)
     } else if (event.type === 'paymentSucceeded' || event.type === 'paymentPending') {
       const info = await getWalletInfo()
       setWalletInfo(info)
@@ -170,10 +205,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
     await disconnect()
     clearMnemonic()
+    clearCachedBalance()
     setIsConnected(false)
     setWalletInfo(null)
     setLightningAddress(null)
     setBalanceSats(0)
+    setIsBalanceStale(false)
   }, [])
 
   const refreshWalletInfo = useCallback(async () => {
@@ -221,6 +258,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       lightningAddress,
       error,
       balanceSats,
+      isBalanceStale,
       generateMnemonic,
       createWallet,
       restoreWallet,
