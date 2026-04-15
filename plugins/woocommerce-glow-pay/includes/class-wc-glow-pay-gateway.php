@@ -86,11 +86,19 @@ class WC_Glow_Pay_Gateway extends WC_Payment_Gateway {
 		$currency = $order->get_currency();
 		$total    = (float) $order->get_total();
 
-		$sats = WC_Glow_Pay_API::fiat_to_sats( $total, $currency );
-		if ( is_wp_error( $sats ) ) {
-			wc_add_notice( $sats->get_error_message(), 'error' );
-			$order->add_order_note( 'Glow Pay: exchange rate lookup failed: ' . $sats->get_error_message() );
-			return array( 'result' => 'failure' );
+		if ( 'SATS' === strtoupper( $currency ) ) {
+			$sats = (int) round( $total );
+			if ( $sats < 1 ) {
+				wc_add_notice( __( 'Order total must be at least 1 sat.', 'woocommerce-glow-pay' ), 'error' );
+				return array( 'result' => 'failure' );
+			}
+		} else {
+			$sats = WC_Glow_Pay_API::fiat_to_sats( $total, $currency );
+			if ( is_wp_error( $sats ) ) {
+				wc_add_notice( $sats->get_error_message(), 'error' );
+				$order->add_order_note( 'Glow Pay: exchange rate lookup failed: ' . $sats->get_error_message() );
+				return array( 'result' => 'failure' );
+			}
 		}
 
 		$api  = new WC_Glow_Pay_API( $this->api_key );

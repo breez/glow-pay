@@ -4,13 +4,15 @@
 // the glow-pay API), finally hits the plugin's return URL and verifies the WC
 // order is marked paid.
 //
-// Usage: DISPLAY=:0 node test-playground.mjs   (headful)
-//        HEADLESS=1 node test-playground.mjs   (headless)
+// Usage: DISPLAY=:0 node test-playground.mjs           (headful, fiat mode)
+//        HEADLESS=1 node test-playground.mjs           (headless)
+//        MODE=sats node test-playground.mjs            (price product in sats)
+//        SKIP_PAY=1 node test-playground.mjs           (stop after payment created — no manual invoice payment needed)
 
 import { chromium } from '/home/roys/ksp-deals/node_modules/playwright/index.mjs';
 
 const BLUEPRINT_URL =
-  'https://gist.githubusercontent.com/kingonly/adcb18a8a48950a299448071e2425057/raw/ab0cabda6b25f5fac77ae9c52ec560f5ddb6fbce/blueprint.json';
+  'https://gist.githubusercontent.com/kingonly/adcb18a8a48950a299448071e2425057/raw/e43ab37ebdf5e213a355e6556a634a78442a9d78/blueprint.json';
 const PLAYGROUND_URL =
   'https://playground.wordpress.net/?blueprint-url=' + encodeURIComponent(BLUEPRINT_URL);
 
@@ -72,6 +74,12 @@ async function waitForPayment(paymentId, timeoutMs = 10 * 60 * 1000) {
 
 async function main() {
   const headless = process.env.HEADLESS === '1';
+  const mode = (process.env.MODE || 'fiat').toLowerCase();
+  const skipPay = process.env.SKIP_PAY === '1';
+  if (mode !== 'fiat' && mode !== 'sats') {
+    throw new Error(`Unknown MODE=${mode} (expected 'fiat' or 'sats')`);
+  }
+  log(`Mode: ${mode}  skipPay: ${skipPay}`);
   log(`Launching Chromium (headless=${headless})…`);
   const browser = await chromium.launch({ headless, slowMo: headless ? 0 : 50 });
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 900 } });
@@ -113,12 +121,31 @@ async function main() {
   await wpFrame.waitForSelector('#message.updated, .notice-success, .updated.notice', { timeout: 30000 });
   log('  ✓ Settings saved');
 
+  if (mode === 'sats') {
+    log('Switching store currency to SATS (WC → General)…');
+    await gotoWp(wpFrame, '/wp-admin/admin.php?page=wc-settings&tab=general');
+    await wpFrame.waitForSelector('select[name="woocommerce_currency"]', { timeout: 30000 });
+    // Verify the currency option is actually registered by our plugin.
+    const hasSats = await wpFrame.$eval(
+      'select[name="woocommerce_currency"]',
+      (sel) => Array.from(sel.options).some((o) => o.value === 'SATS'),
+    );
+    if (!hasSats) {
+      throw new Error('SATS not present in WC currency dropdown — plugin filter failed');
+    }
+    await wpFrame.selectOption('select[name="woocommerce_currency"]', 'SATS');
+    await wpFrame.click('button[name="save"]');
+    await wpFrame.waitForSelector('#message.updated, .notice-success, .updated.notice', { timeout: 30000 });
+    log('  ✓ Store currency set to SATS');
+  }
+
   log('Creating a test product…');
   await gotoWp(wpFrame, '/wp-admin/post-new.php?post_type=product');
   await wpFrame.waitForSelector('#title', { timeout: 30000 });
-  await wpFrame.fill('#title', 'Test Product');
+  await wpFrame.fill('#title', mode === 'sats' ? 'Test Product (sats)' : 'Test Product');
   await wpFrame.waitForSelector('#_regular_price', { timeout: 30000 });
-  await wpFrame.fill('#_regular_price', '1.00');
+  const productPrice = mode === 'sats' ? '1000' : '1.00';
+  await wpFrame.fill('#_regular_price', productPrice);
   await wpFrame.click('#publish');
   await wpFrame.waitForSelector('#message.updated, .updated.notice', { timeout: 30000 });
   const editUrl = wpFrame.url();
@@ -208,6 +235,24 @@ async function main() {
   console.log('  BOLT11: ' + invoice);
   console.log('  Hosted checkout: ' + glowUrl);
   console.log('========================================================================\n');
+
+  if (mode === 'sats') {
+    if (amountSats !== 1000) {
+      throw new Error(`SATS mode: expected amountSats=1000 (no conversion), got ${amountSats}`);
+    }
+    log('  ✓ SATS mode: amountSats matches product price verbatim (no Yadio conversion)');
+  } else {
+    if (!Number.isInteger(amountSats) || amountSats < 1) {
+      throw new Error(`Fiat mode: expected positive integer amountSats, got ${amountSats}`);
+    }
+    log(`  ✓ Fiat mode: amountSats=${amountSats} (converted from $1.00)`);
+  }
+
+  if (skipPay) {
+    log('SKIP_PAY=1 — stopping here, payment creation verified.');
+    await browser.close();
+    return;
+  }
 
   // Open the glow-pay checkout in the system browser so the user can scan the QR.
   try {
