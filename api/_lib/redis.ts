@@ -105,10 +105,13 @@ export async function getPaymentFromKv(paymentId: string): Promise<ServerPayment
 
 export async function savePaymentToKv(payment: ServerPayment): Promise<void> {
   const r = getRedis()
-  // Completed payments get 30-day TTL, others 24h
-  const ttl = payment.status === 'completed' ? 30 * 86400 : 86400
-  await r.set(`payment:${payment.id}`, payment, { ex: ttl })
-  // Index by merchant for dashboard listing
+  // Completed payments persist indefinitely so merchants keep their history;
+  // pending/expired get 24h TTL to keep the live working set bounded.
+  if (payment.status === 'completed') {
+    await r.set(`payment:${payment.id}`, payment)
+  } else {
+    await r.set(`payment:${payment.id}`, payment, { ex: 86400 })
+  }
   await r.zadd(`merchant_payments:${payment.merchantId}`, {
     score: new Date(payment.createdAt).getTime(),
     member: payment.id,
