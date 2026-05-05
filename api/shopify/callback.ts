@@ -74,25 +74,27 @@ function renderLinkPage(shop: string): string {
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Connect Glow Pay — ${escapedShop}</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: #0b0b0f; color: #fff; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-  .card { background: #16161d; border: 1px solid #2a2a35; border-radius: 16px; padding: 32px; max-width: 480px; width: 100%; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: linear-gradient(135deg, #0a0a0f 0%, #12121a 50%, #15101a 100%); color: #fff; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .card { background: #12121a; border: 1px solid #24242f; border-radius: 16px; padding: 32px; max-width: 480px; width: 100%; box-shadow: 0 20px 60px rgba(168, 85, 247, 0.08); }
   h1 { margin: 0 0 8px; font-size: 22px; }
   p { color: #9ca3af; line-height: 1.5; }
   label { display: block; font-size: 13px; color: #d1d5db; margin: 16px 0 6px; }
-  input { width: 100%; padding: 12px 14px; background: #0b0b0f; border: 1px solid #2a2a35; border-radius: 10px; color: #fff; font-size: 14px; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, monospace; }
-  input:focus { outline: none; border-color: #f59e0b; }
-  button { width: 100%; margin-top: 20px; padding: 12px; background: #f59e0b; color: #000; font-weight: 600; border: 0; border-radius: 10px; font-size: 15px; cursor: pointer; }
+  input { width: 100%; padding: 12px 14px; background: #0a0a0f; border: 1px solid #24242f; border-radius: 10px; color: #fff; font-size: 14px; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, monospace; }
+  input:focus { outline: none; border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15); }
+  button { width: 100%; margin-top: 20px; padding: 12px; background: #a855f7; color: #fff; font-weight: 600; border: 0; border-radius: 10px; font-size: 15px; cursor: pointer; transition: background 0.15s; }
+  button:hover:not(:disabled) { background: #9333ea; }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
   .ok { color: #34d399; }
   .err { color: #f87171; }
   .muted { font-size: 12px; color: #6b7280; margin-top: 24px; }
-  a { color: #f59e0b; }
+  a { color: #a855f7; }
+  a:hover { color: #d8b4fe; }
 </style>
 </head>
 <body>
 <div class="card">
   <h1>Connect ${escapedShop}</h1>
-  <p>Paste your Glow Pay API key to link this Shopify store. Find it at <a href="https://glow-pay.co/dashboard/settings" target="_blank">glow-pay.co/dashboard/settings</a> → API keys.</p>
+  <p>Paste your Glow Pay API key to link this Shopify store. Find it at <a href="https://glow-pay.co/dashboard/integration" target="_blank">glow-pay.co/dashboard/integration</a> → API keys.</p>
   <form id="f">
     <label for="apiKey">Glow Pay API key</label>
     <input id="apiKey" name="apiKey" placeholder="glow_..." autocomplete="off" required />

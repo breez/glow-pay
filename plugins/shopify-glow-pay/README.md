@@ -30,7 +30,7 @@ works around that with a **manual payment method + companion app**:
 
 2. Approve the requested scopes (`read_orders`, `write_orders`).
 3. After redirect, paste your Glow Pay API key on the connection page.
-   You can find this at <https://glow-pay.co/dashboard/settings> → API keys.
+   You can find this at <https://glow-pay.co/dashboard/integration> → API keys.
 
 ## Configure the manual payment method
 
