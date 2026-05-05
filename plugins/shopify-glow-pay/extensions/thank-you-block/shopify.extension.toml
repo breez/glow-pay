@@ -1,4 +1,5 @@
 api_version = "2024-10"
+uid = "49893895-52db-3429-e19d-4b1fc2de79815ce68e4c"
 
 [[extensions]]
 name = "Glow Pay - Bitcoin / Lightning"

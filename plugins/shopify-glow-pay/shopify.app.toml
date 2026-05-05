@@ -22,4 +22,3 @@ uri = "https://glow-pay.co/api/shopify/webhooks/uninstalled"
 embedded = false
 
 [build]
-include_config_on_deploy = true
