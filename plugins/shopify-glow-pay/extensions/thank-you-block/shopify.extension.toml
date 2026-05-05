@@ -1,0 +1,15 @@
+api_version = "2024-10"
+
+[[extensions]]
+name = "Glow Pay - Bitcoin / Lightning"
+handle = "glow-pay-thank-you"
+type = "ui_extension"
+
+[[extensions.targeting]]
+module = "./src/Checkout.tsx"
+target = "purchase.thank-you.block.render"
+
+[extensions.capabilities]
+network_access = true
+api_access = true
+block_progress = false

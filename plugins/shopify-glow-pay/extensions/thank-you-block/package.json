@@ -1,0 +1,19 @@
+{
+  "name": "thank-you-block",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "main": "src/Checkout.tsx",
+  "scripts": {
+    "build": "shopify app build"
+  },
+  "dependencies": {
+    "@shopify/ui-extensions": "2024.10.x",
+    "@shopify/ui-extensions-react": "2024.10.x",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "typescript": "^5.4.0"
+  }
+}

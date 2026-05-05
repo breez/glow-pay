@@ -1,0 +1,19 @@
+{
+  "name": "shopify-glow-pay",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "dev": "shopify app dev",
+    "deploy": "shopify app deploy",
+    "config:link": "shopify app config link",
+    "config:use": "shopify app config use"
+  },
+  "devDependencies": {
+    "@shopify/cli": "^3.70.0",
+    "@shopify/app": "^3.70.0"
+  },
+  "workspaces": [
+    "extensions/*"
+  ]
+}

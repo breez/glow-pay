@@ -1,0 +1,25 @@
+client_id = "091c46e63efaddd3527c419cd7c06982"
+name = "Glow Pay"
+application_url = "https://glow-pay.co"
+embedded = false
+
+[access_scopes]
+scopes = "read_orders,write_orders"
+
+[auth]
+redirect_urls = [
+  "https://glow-pay.co/api/shopify/callback"
+]
+
+[webhooks]
+api_version = "2024-10"
+
+[[webhooks.subscriptions]]
+topics = [ "app/uninstalled" ]
+uri = "https://glow-pay.co/api/shopify/webhooks/uninstalled"
+
+[pos]
+embedded = false
+
+[build]
+include_config_on_deploy = true
