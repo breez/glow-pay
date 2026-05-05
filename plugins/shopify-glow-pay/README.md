@@ -41,18 +41,47 @@ works around that with a **manual payment method + companion app**:
 4. Payment instructions: leave blank.
 5. Save and **activate** the method.
 
-## Add the "Pay now" link to your order confirmation email
+## Embed the QR + invoice on your "Thank you" page
+
+This is the recommended setup. Customer places the order, lands on
+Shopify's Order Status Page, and sees the BOLT11 invoice + QR code
+immediately — no email click, no redirect.
+
+1. **Settings → Checkout → Order status page → Additional scripts**
+   (on Shopify Plus this is "Additional scripts"; on other plans it
+   may be labelled "Additional content").
+2. Paste:
+
+   ```liquid
+   {% if financial_status == 'pending' %}
+     <div data-glow-pay-shopify
+          data-shop="{{ shop.permanent_domain }}"
+          data-order="{{ id }}"></div>
+     <script src="https://glow-pay.co/shopify-embed.js" defer></script>
+   {% endif %}
+   ```
+
+3. Save.
+
+The embed polls payment status every 2.5s. When the invoice settles,
+Glow Pay marks the Shopify order paid via the Admin API and the page
+reloads — Shopify shows the order as "Paid".
+
+## (Optional) Add a fallback "Pay now" link to the order confirmation email
+
+For customers who close the tab before paying, drop the same kind of
+link into the confirmation email so they can resume:
 
 1. **Settings → Notifications → Order confirmation → Edit code**.
-2. Find a good location (e.g. above the order summary) and paste:
+2. Find a good location (above the order summary works well) and paste:
 
    ```liquid
    {% if financial_status == 'pending' %}
      <table style="margin: 24px 0;">
        <tr>
-         <td style="background: #f59e0b; border-radius: 8px; padding: 14px 28px;">
+         <td style="background: #a855f7; border-radius: 8px; padding: 14px 28px;">
            <a href="https://glow-pay.co/api/shopify/pay?shop={{ shop.permanent_domain }}&order={{ id }}"
-              style="color: #000; font-weight: 600; text-decoration: none;">
+              style="color: #fff; font-weight: 600; text-decoration: none;">
              Pay with Bitcoin / Lightning
            </a>
          </td>
@@ -62,10 +91,6 @@ works around that with a **manual payment method + companion app**:
    ```
 
 3. Save the template.
-
-You can use the same snippet in **Settings → Checkout → Order status page →
-Additional content** if you'd like the link to also appear on the post-checkout
-"Thank you" page.
 
 ## How payment flows
 
