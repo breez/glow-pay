@@ -137,8 +137,10 @@ intact.
 |---|---|
 | `GET /api/shopify/install` | OAuth entry point. Requires `?shop=` param. |
 | `GET /api/shopify/callback` | OAuth callback. Stores access token. |
-| `POST /api/shopify/link` | Binds shop ↔ Glow Pay API key. |
+| `POST /api/shopify/callback` | Binds shop ↔ Glow Pay API key (same route, different method). |
 | `GET /api/shopify/pay` | Customer-facing. Creates payment, redirects to checkout. |
+| `GET /api/shopify/invoice` | Customer-facing. Returns the entire QR/amount/status as an SVG, used by the Checkout UI extension. |
+| `GET /api/shopify/wallet-redirect` | 302s to `lightning:<bolt11>` for the extension's "Open in wallet" link. |
 | `POST /api/shopify/webhooks/uninstalled` | Cleans up on uninstall. |
 
 ## Required Vercel environment variables
