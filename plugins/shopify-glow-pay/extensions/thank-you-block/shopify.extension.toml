@@ -11,6 +11,4 @@ module = "./src/Checkout.tsx"
 target = "purchase.thank-you.block.render"
 
 [extensions.capabilities]
-network_access = true
 api_access = true
-block_progress = false
