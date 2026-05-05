@@ -49,7 +49,7 @@ function Extension() {
   }
 
   const qs = `shop=${encodeURIComponent(shopDomain)}&order=${encodeURIComponent(numericOrderId)}`
-  const imageSrc = `${ORIGIN}/api/shopify/invoice.svg?${qs}&t=${tick}`
+  const imageSrc = `${ORIGIN}/api/shopify/invoice?${qs}&t=${tick}`
   const walletUrl = `${ORIGIN}/api/shopify/wallet-redirect?${qs}`
 
   return (
