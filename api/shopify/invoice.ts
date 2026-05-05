@@ -8,7 +8,7 @@ import {
   getRedis,
   type ServerPayment,
 } from '../_lib/redis.js'
-import { getInstallation, getOrder, isValidShopDomain } from '../_lib/shopify.js'
+import { getInstallation, isValidShopDomain } from '../_lib/shopify.js'
 import { fetchLnurlPayInfo, requestInvoice, satsToMsats } from '../../src/lib/lnurl.js'
 
 const PAYMENT_EXPIRY_SECS = 600
@@ -32,6 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const shop = typeof req.query.shop === 'string' ? req.query.shop : undefined
   const orderIdRaw = typeof req.query.order === 'string' ? req.query.order : undefined
+  const amountStr = typeof req.query.amount === 'string' ? req.query.amount : undefined
+  const currency = typeof req.query.currency === 'string' ? req.query.currency : undefined
 
   if (!isValidShopDomain(shop)) {
     return res.status(200).send(errorSvg('Invalid shop domain.'))
@@ -39,12 +41,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!orderIdRaw || !/^\d+$/.test(orderIdRaw)) {
     return res.status(200).send(errorSvg('Invalid order id.'))
   }
+  if (!amountStr || !currency) {
+    return res.status(200).send(errorSvg('Missing amount or currency.'))
+  }
 
   try {
-    const payment = await getOrCreatePayment(shop, orderIdRaw)
-    if (!payment) {
-      return res.status(200).send(paidSvg())
-    }
+    const payment = await getOrCreatePayment(shop, orderIdRaw, amountStr, currency)
     if (payment.status === 'completed') return res.status(200).send(paidSvg())
     if (payment.status === 'expired') return res.status(200).send(expiredSvg())
     return res.status(200).send(await pendingSvg(payment.amountSats, payment.invoice ?? ''))
@@ -54,7 +56,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 }
 
-async function getOrCreatePayment(shop: string, orderIdRaw: string): Promise<ServerPayment | null> {
+async function getOrCreatePayment(
+  shop: string,
+  orderIdRaw: string,
+  amountStr: string,
+  currency: string,
+): Promise<ServerPayment> {
   const install = await getInstallation(shop)
   if (!install) throw new Error('Shopify store not connected')
   if (!install.apiKey || !install.merchantId) throw new Error('Store not linked to a Glow Pay account')
@@ -71,17 +78,17 @@ async function getOrCreatePayment(shop: string, orderIdRaw: string): Promise<Ser
     if (existing && existing.status !== 'expired') return existing
   }
 
-  const order = await getOrder(shop, install.accessToken, orderIdRaw)
-  if (order.financial_status === 'paid') return null
+  const amount = parseFloat(amountStr)
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Invalid order amount')
 
-  const amountSats = await convertToSats(parseFloat(order.total_price), order.currency)
+  const amountSats = await convertToSats(amount, currency)
   const lnurlInfo = await fetchLnurlPayInfo(merchant.lightningAddress)
   const msats = satsToMsats(amountSats)
   if (msats < lnurlInfo.minSendable || msats > lnurlInfo.maxSendable) {
     throw new Error(`Order amount (${amountSats} sats) is outside the merchant's accepted range`)
   }
 
-  const description = `Shopify order ${order.name}`
+  const description = `Shopify order #${orderIdRaw}`
   const invoiceResponse = await requestInvoice(lnurlInfo.callback, msats, description, PAYMENT_EXPIRY_SECS)
   const paymentId = randomUUID()
   const now = new Date()
@@ -98,16 +105,17 @@ async function getOrCreatePayment(shop: string, orderIdRaw: string): Promise<Ser
       source: 'shopify',
       shop,
       orderId: orderIdRaw,
-      orderName: order.name,
-      orderTotal: order.total_price,
-      orderCurrency: order.currency,
-      orderStatusUrl: order.order_status_url || null,
+      orderTotal: amountStr,
+      orderCurrency: currency,
     },
     createdAt: now.toISOString(),
     paidAt: null,
     expiresAt: new Date(now.getTime() + PAYMENT_EXPIRY_SECS * 1000).toISOString(),
   }
   await savePaymentToKv(payment)
+  // Index TTL covers the invoice lifetime + a buffer so reloads after the
+  // invoice expires can re-create. After the payment completes,
+  // settleShopifyOrder() will not touch the index — it's left to expire.
   await r.set(indexKey, paymentId, { ex: PAYMENT_EXPIRY_SECS + 60 })
   return payment
 }
@@ -127,7 +135,7 @@ async function convertToSats(amount: number, currency: string): Promise<number> 
 
 // ---- SVG composition ----
 
-const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+const FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
 
 async function pendingSvg(amountSats: number, invoice: string): Promise<string> {
   const qrSvg = await QRCode.toString(invoice.toUpperCase(), {

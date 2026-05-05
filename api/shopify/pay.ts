@@ -1,68 +1,69 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { randomUUID } from 'crypto'
-import { getMerchantByApiKey, savePaymentToKv, type ServerPayment } from '../_lib/redis.js'
-import { getInstallation, getOrder, isValidShopDomain } from '../_lib/shopify.js'
+import { getMerchantByApiKey, savePaymentToKv, getRedis, getPaymentFromKv, type ServerPayment } from '../_lib/redis.js'
+import { getInstallation, isValidShopDomain } from '../_lib/shopify.js'
 import { fetchLnurlPayInfo, requestInvoice, satsToMsats } from '../../src/lib/lnurl.js'
 
 const PAYMENT_EXPIRY_SECS = 600
+const orderIndexKey = (shop: string, orderId: string) => `shopify:order:${shop}:${orderId}`
 
 /**
  * Customer-facing endpoint. The merchant places a link to this URL in
- * their Shopify order confirmation email or order status page:
+ * their Shopify order confirmation email:
  *
- *   https://glow-pay.co/api/shopify/pay?shop={{ shop.permanent_domain }}&order={{ order.id }}
+ *   https://glow-pay.co/api/shopify/pay
+ *     ?shop={{ shop.permanent_domain }}
+ *     &order={{ id }}
+ *     &amount={{ total_price | divided_by: 100.0 }}
+ *     &currency={{ currency }}
  *
- * We look up the Shopify install, fetch the order via Admin API to confirm
- * it's unpaid, fetch a live BTC rate to convert the order total, create a
- * glow-pay payment with Shopify metadata, and 302-redirect to the checkout.
+ * We trust the URL params for amount/currency rather than calling
+ * the Shopify Admin API (which would require "protected customer
+ * data" approval). Idempotent per (shop, order). 302 to glow-pay
+ * checkout.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const shop = typeof req.query.shop === 'string' ? req.query.shop : undefined
   const orderIdRaw = typeof req.query.order === 'string' ? req.query.order : undefined
+  const amountStr = typeof req.query.amount === 'string' ? req.query.amount : undefined
+  const currency = typeof req.query.currency === 'string' ? req.query.currency : undefined
 
-  if (!isValidShopDomain(shop)) {
-    return res.status(400).send('Invalid shop domain.')
-  }
-  if (!orderIdRaw || !/^\d+$/.test(orderIdRaw)) {
-    return res.status(400).send('Missing or invalid order id.')
-  }
+  if (!isValidShopDomain(shop)) return res.status(400).send('Invalid shop domain.')
+  if (!orderIdRaw || !/^\d+$/.test(orderIdRaw)) return res.status(400).send('Missing or invalid order id.')
+  if (!amountStr || !currency) return res.status(400).send('Missing amount or currency.')
 
   const install = await getInstallation(shop)
-  if (!install) {
-    return res.status(404).send('Shopify store not connected — the merchant needs to reinstall Glow Pay.')
-  }
+  if (!install) return res.status(404).send('Shopify store not connected.')
   if (!install.apiKey || !install.merchantId) {
-    return res.status(409).send('Shopify store is installed but not yet linked to a Glow Pay account.')
+    return res.status(409).send('Store is not yet linked to a Glow Pay account.')
   }
 
   const merchant = await getMerchantByApiKey(install.apiKey)
-  if (!merchant) {
-    return res.status(401).send('Linked Glow Pay account is invalid — the merchant needs to relink the store.')
+  if (!merchant) return res.status(401).send('Linked Glow Pay account is invalid.')
+  if (!merchant.lightningAddress) {
+    return res.status(409).send('Merchant has no Lightning address configured.')
   }
 
-  let order
-  try {
-    order = await getOrder(shop, install.accessToken, orderIdRaw)
-  } catch (err) {
-    console.error('Shopify getOrder failed:', err)
-    return res.status(502).send('Could not fetch order from Shopify.')
+  const r = getRedis()
+  const indexKey = orderIndexKey(shop, orderIdRaw)
+  const existingId = await r.get<string>(indexKey)
+  if (existingId) {
+    const existing = await getPaymentFromKv(existingId)
+    if (existing && existing.status !== 'expired') {
+      const baseUrl = `https://${req.headers.host}`
+      return res.redirect(302, `${baseUrl}/pay/${merchant.id}/${existing.id}`)
+    }
   }
 
-  if (order.financial_status === 'paid') {
-    if (order.order_status_url) return res.redirect(302, order.order_status_url)
-    return res.status(200).send('This order has already been paid.')
-  }
+  const amount = parseFloat(amountStr)
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).send('Invalid order amount.')
 
   let amountSats: number
   try {
-    amountSats = await convertToSats(parseFloat(order.total_price), order.currency)
+    amountSats = await convertToSats(amount, currency)
   } catch (err) {
     console.error('Currency conversion failed:', err)
     return res.status(502).send('Could not convert order amount to sats.')
-  }
-
-  if (!merchant.lightningAddress) {
-    return res.status(409).send('Merchant has no Lightning address configured.')
   }
 
   try {
@@ -72,10 +73,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).send(`Order amount (${amountSats} sats) is outside the merchant's accepted range.`)
     }
 
-    const description = `Shopify order ${order.name}`
+    const description = `Shopify order #${orderIdRaw}`
     const invoiceResponse = await requestInvoice(lnurlInfo.callback, msats, description, PAYMENT_EXPIRY_SECS)
-    const verifyUrl = invoiceResponse.verify || null
-
     const paymentId = randomUUID()
     const now = new Date()
     const payment: ServerPayment = {
@@ -85,23 +84,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       amountSats,
       description,
       invoice: invoiceResponse.pr,
-      verifyUrl,
+      verifyUrl: invoiceResponse.verify || null,
       status: 'pending',
-      metadata: {
-        source: 'shopify',
-        shop,
-        orderId: orderIdRaw,
-        orderName: order.name,
-        orderTotal: order.total_price,
-        orderCurrency: order.currency,
-        orderStatusUrl: order.order_status_url || null,
-      },
+      metadata: { source: 'shopify', shop, orderId: orderIdRaw, orderTotal: amountStr, orderCurrency: currency },
       createdAt: now.toISOString(),
       paidAt: null,
       expiresAt: new Date(now.getTime() + PAYMENT_EXPIRY_SECS * 1000).toISOString(),
     }
-
     await savePaymentToKv(payment)
+    await r.set(indexKey, paymentId, { ex: PAYMENT_EXPIRY_SECS + 60 })
 
     const baseUrl = `https://${req.headers.host}`
     return res.redirect(302, `${baseUrl}/pay/${merchant.id}/${paymentId}`)
@@ -122,6 +113,5 @@ async function convertToSats(amount: number, currency: string): Promise<number> 
   const json = (await res.json()) as { BTC: Record<string, number> }
   const rate = json.BTC?.[cur]
   if (!rate || !Number.isFinite(rate)) throw new Error(`No BTC/${cur} rate available`)
-  const btcAmount = amount / rate
-  return Math.round(btcAmount * 100_000_000)
+  return Math.round((amount / rate) * 100_000_000)
 }

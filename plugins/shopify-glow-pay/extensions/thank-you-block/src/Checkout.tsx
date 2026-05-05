@@ -8,6 +8,7 @@ import {
   Text,
   useApi,
   useShop,
+  useTotalAmount,
 } from '@shopify/ui-extensions-react/checkout'
 import { useEffect, useState } from 'react'
 
@@ -30,6 +31,7 @@ const REFRESH_MS = 3000
 function Extension() {
   const api = useApi<'purchase.thank-you.block.render'>()
   const shop = useShop()
+  const total = useTotalAmount()
 
   const orderGid = api.orderConfirmation?.current?.order?.id
   const numericOrderId = typeof orderGid === 'string' ? orderGid.split('/').pop() ?? null : null
@@ -42,15 +44,21 @@ function Extension() {
     return () => clearInterval(id)
   }, [])
 
-  if (!shopDomain || !numericOrderId) {
+  if (!shopDomain || !numericOrderId || !total?.amount || !total?.currencyCode) {
     return (
       <Text>Bitcoin / Lightning is not available for this order.</Text>
     )
   }
 
-  const qs = `shop=${encodeURIComponent(shopDomain)}&order=${encodeURIComponent(numericOrderId)}`
+  const baseQs =
+    `shop=${encodeURIComponent(shopDomain)}` +
+    `&order=${encodeURIComponent(numericOrderId)}`
+  const qs =
+    baseQs +
+    `&amount=${encodeURIComponent(String(total.amount))}` +
+    `&currency=${encodeURIComponent(total.currencyCode)}`
   const imageSrc = `${ORIGIN}/api/shopify/invoice?${qs}&t=${tick}`
-  const walletUrl = `${ORIGIN}/api/shopify/wallet-redirect?${qs}`
+  const walletUrl = `${ORIGIN}/api/shopify/wallet-redirect?${baseQs}`
 
   return (
     <View padding="base">

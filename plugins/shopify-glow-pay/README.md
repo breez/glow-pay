@@ -80,7 +80,7 @@ link into the confirmation email so they can resume:
      <table style="margin: 24px 0;">
        <tr>
          <td style="background: #a855f7; border-radius: 8px; padding: 14px 28px;">
-           <a href="https://glow-pay.co/api/shopify/pay?shop={{ shop.permanent_domain }}&order={{ id }}"
+           <a href="https://glow-pay.co/api/shopify/pay?shop={{ shop.permanent_domain }}&order={{ id }}&amount={{ total_price | divided_by: 100.0 }}&currency={{ currency }}"
               style="color: #fff; font-weight: 600; text-decoration: none;">
              Pay with Bitcoin / Lightning
            </a>
