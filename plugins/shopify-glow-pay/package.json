@@ -10,8 +10,7 @@
     "config:use": "shopify app config use"
   },
   "devDependencies": {
-    "@shopify/cli": "^3.70.0",
-    "@shopify/app": "^3.70.0"
+    "@shopify/cli": "^3.94.0"
   },
   "workspaces": [
     "extensions/*"

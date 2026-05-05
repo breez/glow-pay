@@ -10,6 +10,7 @@ import {
   Link,
   View,
   useApi,
+  useShop,
 } from '@shopify/ui-extensions-react/checkout'
 import { useEffect, useState } from 'react'
 
@@ -29,27 +30,25 @@ interface PaymentData {
 
 function Extension() {
   const api = useApi<'purchase.thank-you.block.render'>()
+  const shop = useShop()
+
   const orderGid = api.orderConfirmation?.current?.order?.id
   const numericOrderId = typeof orderGid === 'string' ? orderGid.split('/').pop() ?? null : null
-  // Shop domain is exposed differently across API versions — try a few paths.
-  const shop =
-    (api as { shop?: { myshopifyDomain?: string } }).shop?.myshopifyDomain ??
-    (api as { sessionToken?: { current?: { shopDomain?: string } } }).sessionToken?.current?.shopDomain ??
-    null
+  const shopDomain = shop?.myshopifyDomain ?? null
 
   const [data, setData] = useState<PaymentData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [paid, setPaid] = useState(false)
 
   useEffect(() => {
-    if (!shop || !numericOrderId) {
+    if (!shopDomain || !numericOrderId) {
       setError('Missing shop or order info — please refresh.')
       return
     }
     let cancelled = false
     ;(async () => {
       try {
-        const url = `${ORIGIN}/api/shopify/order-payment?shop=${encodeURIComponent(shop)}&order=${encodeURIComponent(numericOrderId)}`
+        const url = `${ORIGIN}/api/shopify/order-payment?shop=${encodeURIComponent(shopDomain)}&order=${encodeURIComponent(numericOrderId)}`
         const r = await fetch(url)
         const j: { success?: boolean; error?: string; data?: PaymentData & { paid?: boolean } } = await r.json()
         if (cancelled) return
@@ -67,7 +66,7 @@ function Extension() {
     return () => {
       cancelled = true
     }
-  }, [shop, numericOrderId])
+  }, [shopDomain, numericOrderId])
 
   useEffect(() => {
     if (!data?.paymentId || paid) return
