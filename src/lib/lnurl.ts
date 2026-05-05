@@ -1,5 +1,5 @@
 import { decode } from 'light-bolt11-decoder'
-import type { LnurlPayResponse, LnurlInvoiceResponse, LnurlVerifyResponse } from './types'
+import type { LnurlPayResponse, LnurlInvoiceResponse, LnurlVerifyResponse } from './types.js'
 
 /**
  * Extract payment hash from a bolt11 invoice
