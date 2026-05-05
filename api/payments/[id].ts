@@ -1,7 +1,24 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { getPaymentFromKv, savePaymentToKv, getMerchantById, getMerchantByApiKey } from '../_lib/redis.js'
 import { sendWebhook } from '../_lib/webhook.js'
+import { getInstallation, markOrderPaid } from '../_lib/shopify.js'
 import { verifyPayment } from '../../src/lib/lnurl.js'
+
+async function settleShopifyOrder(metadata: Record<string, unknown> | null): Promise<void> {
+  if (!metadata || metadata.source !== 'shopify') return
+  const shop = typeof metadata.shop === 'string' ? metadata.shop : null
+  const orderId = typeof metadata.orderId === 'string' ? metadata.orderId : null
+  const total = typeof metadata.orderTotal === 'string' ? metadata.orderTotal : null
+  const currency = typeof metadata.orderCurrency === 'string' ? metadata.orderCurrency : null
+  if (!shop || !orderId || !total || !currency) return
+
+  const install = await getInstallation(shop)
+  if (!install) {
+    console.warn(`Shopify settle skipped: no installation for ${shop}`)
+    return
+  }
+  await markOrderPaid(shop, install.accessToken, orderId, total, currency)
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') {
@@ -38,6 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         payment.status = 'completed'
         payment.paidAt = new Date().toISOString()
         await savePaymentToKv(payment)
+        settleShopifyOrder(payment.metadata).catch(err => console.error('Shopify settle failed:', err))
       } else if (new Date(payment.expiresAt) < new Date()) {
         payment.status = 'expired'
         await savePaymentToKv(payment)
