@@ -57,12 +57,16 @@ export async function getMerchantById(id: string): Promise<ServerMerchant | null
 
 export async function saveMerchantToKv(merchant: ServerMerchant, oldApiKeys?: string[]): Promise<void> {
   const r = getRedis()
-  await r.set(`merchant:${merchant.id}`, merchant)
+  // Run the merchant record + all apikey mappings in one transaction so a
+  // partial failure can't leave a revoked key still valid or a new key dead.
+  // MULTI preserves command order, so del-then-set is safe when a key is reused.
+  const tx = r.multi()
+  tx.set(`merchant:${merchant.id}`, merchant)
 
   // Remove old API key mappings
   if (oldApiKeys) {
     for (const oldKey of oldApiKeys) {
-      await r.del(`apikey:${oldKey}`)
+      tx.del(`apikey:${oldKey}`)
     }
   }
 
@@ -70,15 +74,17 @@ export async function saveMerchantToKv(merchant: ServerMerchant, oldApiKeys?: st
   if (merchant.apiKeys?.length > 0) {
     for (const k of merchant.apiKeys) {
       if (k.active) {
-        await r.set(`apikey:${k.key}`, merchant.id)
+        tx.set(`apikey:${k.key}`, merchant.id)
       } else {
-        await r.del(`apikey:${k.key}`)
+        tx.del(`apikey:${k.key}`)
       }
     }
   } else {
     // Backward compat: single apiKey
-    await r.set(`apikey:${merchant.apiKey}`, merchant.id)
+    tx.set(`apikey:${merchant.apiKey}`, merchant.id)
   }
+
+  await tx.exec()
 }
 
 // Payment helpers
@@ -120,9 +126,49 @@ export async function savePaymentToKv(payment: ServerPayment): Promise<void> {
 
 export async function getPaymentsByMerchant(merchantId: string, limit = 100): Promise<ServerPayment[]> {
   const r = getRedis()
-  const ids = await r.zrange(`merchant_payments:${merchantId}`, 0, limit - 1, { rev: true })
-  if (!ids.length) return []
-  const keys = (ids as string[]).map(id => `payment:${id}`)
-  const payments = await r.mget<(ServerPayment | null)[]>(...keys)
-  return payments.filter((p): p is ServerPayment => p !== null)
+  const zkey = `merchant_payments:${merchantId}`
+  const live: ServerPayment[] = []
+  const orphans: string[] = []
+  const batchSize = Math.max(limit, 50)
+  let start = 0
+
+  // The index can hold members whose payment value has expired (pending/expired
+  // payments carry a 24h TTL; completed ones never expire). A naive top-N read
+  // would surface those as nulls and silently truncate real history, so we walk
+  // the index in windows, accumulating live payments until we have `limit` of
+  // them (or run out), and collect the dead members to prune below.
+  while (live.length < limit) {
+    const ids = await r.zrange<string[]>(zkey, start, start + batchSize - 1, { rev: true })
+    if (!ids.length) break
+    const keys = ids.map(id => `payment:${id}`)
+    const payments = await r.mget<(ServerPayment | null)[]>(...keys)
+    for (let i = 0; i < payments.length; i++) {
+      const p = payments[i]
+      if (p !== null) {
+        if (live.length < limit) live.push(p)
+      } else {
+        orphans.push(ids[i])
+      }
+    }
+    if (ids.length < batchSize) break // index exhausted
+    start += batchSize
+  }
+
+  // Lazy-heal: drop members whose value key is gone. A null mget result proves
+  // the key expired (completed payments never expire), so this can't remove a
+  // live payment. Keeps the index bounded over time.
+  if (orphans.length) {
+    await r.zrem(zkey, ...orphans)
+  }
+
+  return live
+}
+
+// Settlement lock: ensures only one concurrent request performs the
+// pending -> completed/expired transition and its side-effects (Shopify
+// settle, merchant webhook). Returns true if this caller acquired the lock.
+export async function acquireSettleLock(paymentId: string, ttlSeconds = 30): Promise<boolean> {
+  const r = getRedis()
+  const res = await r.set(`settle:${paymentId}`, '1', { nx: true, ex: ttlSeconds })
+  return res === 'OK'
 }

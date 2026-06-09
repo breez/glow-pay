@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getPaymentFromKv, savePaymentToKv, getMerchantById, getMerchantByApiKey } from '../_lib/redis.js'
+import { getPaymentFromKv, savePaymentToKv, getMerchantById, getMerchantByApiKey, acquireSettleLock } from '../_lib/redis.js'
 import { sendWebhook } from '../_lib/webhook.js'
 import { getInstallation, markOrderPaid } from '../_lib/shopify.js'
 import { verifyPayment } from '../../src/lib/lnurl.js'
@@ -48,28 +48,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Live LNURL-verify check if still pending
   if (payment.status === 'pending' && payment.verifyUrl) {
-    const previousStatus = payment.status
+    // Decide the target transition first (read-only), then settle under a lock.
+    let target: 'completed' | 'expired' | null = null
+    let paidAt: string | null = null
     try {
       const result = await verifyPayment(payment.verifyUrl)
       if (result.settled) {
-        payment.status = 'completed'
-        payment.paidAt = new Date().toISOString()
-        await savePaymentToKv(payment)
-        settleShopifyOrder(payment.metadata).catch(err => console.error('Shopify settle failed:', err))
+        target = 'completed'
+        paidAt = new Date().toISOString()
       } else if (new Date(payment.expiresAt) < new Date()) {
-        payment.status = 'expired'
-        await savePaymentToKv(payment)
+        target = 'expired'
       }
     } catch (err) {
       console.warn('LNURL-verify check failed:', err)
     }
 
-    // Fire webhook on status change
-    if (payment.status !== previousStatus && merchant?.webhookUrl && merchant?.webhookSecret) {
-      sendWebhook(merchant.webhookUrl, merchant.webhookSecret,
-        payment.status === 'completed' ? 'payment.completed' : 'payment.expired',
-        { paymentId: payment.id, amountSats: payment.amountSats, status: payment.status, paidAt: payment.paidAt },
-      ).catch(() => {})
+    if (target) {
+      // Only the lock winner persists the transition and fires side-effects;
+      // concurrent polls reflect the outcome without double-firing Shopify/webhook.
+      const gotLock = await acquireSettleLock(payment.id)
+      if (gotLock) {
+        // Re-read under the lock so we never overwrite a status another request
+        // (or the PATCH endpoint) already moved off 'pending'.
+        const fresh = await getPaymentFromKv(payment.id)
+        if (fresh && fresh.status === 'pending') {
+          payment.status = target
+          if (target === 'completed') payment.paidAt = paidAt
+          await savePaymentToKv(payment)
+          if (target === 'completed') {
+            settleShopifyOrder(payment.metadata).catch(err => console.error('Shopify settle failed:', err))
+          }
+          if (merchant?.webhookUrl && merchant?.webhookSecret) {
+            sendWebhook(merchant.webhookUrl, merchant.webhookSecret,
+              target === 'completed' ? 'payment.completed' : 'payment.expired',
+              { paymentId: payment.id, amountSats: payment.amountSats, status: payment.status, paidAt: payment.paidAt },
+            ).catch(() => {})
+          }
+        } else if (fresh) {
+          // Already transitioned by a concurrent request — reflect, don't re-fire.
+          payment.status = fresh.status
+          payment.paidAt = fresh.paidAt
+        }
+      } else {
+        // Lost the lock: settlement is happening elsewhere. verifyPayment already
+        // confirmed the truth, so reflect it for this response without side-effects.
+        payment.status = target
+        if (target === 'completed' && !payment.paidAt) payment.paidAt = paidAt
+      }
     }
   }
 
@@ -124,15 +149,28 @@ async function handlePatch(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'status must be "expired"' })
   }
 
-  const previousStatus = payment.status
-  payment.status = status
-  await savePaymentToKv(payment)
-
-  // Fire webhook on status change
-  if (status !== previousStatus && merchant.webhookUrl && merchant.webhookSecret) {
-    sendWebhook(merchant.webhookUrl, merchant.webhookSecret, 'payment.expired',
-      { paymentId: payment.id, amountSats: payment.amountSats, status, paidAt: payment.paidAt },
-    ).catch(() => {})
+  // Only expire a still-pending payment, and do it under the settlement lock so
+  // a concurrent GET that's completing the same payment can't be clobbered.
+  if (payment.status === 'pending') {
+    const gotLock = await acquireSettleLock(payment.id)
+    if (gotLock) {
+      const fresh = await getPaymentFromKv(payment.id)
+      if (fresh && fresh.status === 'pending') {
+        payment.status = 'expired'
+        await savePaymentToKv(payment)
+        if (merchant.webhookUrl && merchant.webhookSecret) {
+          sendWebhook(merchant.webhookUrl, merchant.webhookSecret, 'payment.expired',
+            { paymentId: payment.id, amountSats: payment.amountSats, status: 'expired', paidAt: payment.paidAt },
+          ).catch(() => {})
+        }
+      } else if (fresh) {
+        payment.status = fresh.status
+      }
+    } else {
+      // A concurrent settlement holds the lock; reflect latest persisted state.
+      const fresh = await getPaymentFromKv(payment.id)
+      if (fresh) payment.status = fresh.status
+    }
   }
 
   return res.status(200).json({ success: true, data: { id: payment.id, status: payment.status } })
